@@ -139,27 +139,33 @@ pub struct PickingPipeline {
     id: CachedComputePipelineId,
     layout: BindGroupLayout,
 }
-
+use std::borrow::Cow;
 impl FromWorld for PickingPipeline {
     fn from_world(world: &mut World) -> Self {
         let device = world.resource::<RenderDevice>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        let layout = device.create_bind_group_layout(
-            None,
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::COMPUTE,
-                (
-                    storage_buffer::<GpuPickingData>(false),
-                    texture_depth_2d_multisampled(),
-                    texture_2d_multisampled(TextureSampleType::Uint),
-                ),
+        // Build the descriptor explicitly
+        let label = "picking_bind_group_layout";
+        let entries = BindGroupLayoutEntries::sequential(
+            ShaderStages::COMPUTE,
+            (
+                storage_buffer::<GpuPickingData>(false),
+                texture_depth_2d_multisampled(),
+                texture_2d_multisampled(TextureSampleType::Uint),
             ),
-        );
+        )
+        .to_vec(); // convert entries into Vec<BindGroupLayoutEntry>
+        let layout_descriptor = BindGroupLayoutDescriptor {
+            label: Cow::Borrowed(label),
+            entries: entries.clone(),
+        };
+        // Create the actual layout from the descriptor
+        let layout = device.create_bind_group_layout(label, &entries);
 
         let id = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,
-            layout: vec![layout.clone()],
+            layout: vec![layout_descriptor],
             push_constant_ranges: Vec::new(),
             shader: world.load_asset(PICKING_SHADER),
             shader_defs: vec![],

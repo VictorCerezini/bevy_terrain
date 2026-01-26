@@ -10,30 +10,27 @@ use bevy::{
     render::{
         render_graph::{self, NodeRunError, RenderGraphContext, RenderLabel},
         render_resource::{binding_types::*, *},
-        renderer::{RenderContext, RenderDevice},
+        renderer::RenderContext,
     },
     shader::ShaderDefVal,
 };
+use std::borrow::Cow;
 use strum::IntoEnumIterator;
 
-pub(crate) fn create_mip_layout(
-    device: &RenderDevice,
-    format: AttachmentFormat,
-) -> BindGroupLayout {
-    device.create_bind_group_layout(
-        None,
-        &BindGroupLayoutEntries::sequential(
-            ShaderStages::COMPUTE,
-            (
-                uniform_buffer::<u32>(false), // atlas_index
-                texture_2d_array(TextureSampleType::Float { filterable: true }), // parent
-                texture_storage_2d_array(
-                    format.processing_format(),
-                    StorageTextureAccess::WriteOnly,
-                ), // child
-            ),
+pub(crate) fn create_mip_layout(format: AttachmentFormat) -> BindGroupLayoutDescriptor {
+    let entries = BindGroupLayoutEntries::sequential(
+        ShaderStages::COMPUTE,
+        (
+            uniform_buffer::<u32>(false), // atlas_index
+            texture_2d_array(TextureSampleType::Float { filterable: true }), // parent
+            texture_storage_2d_array(format.processing_format(), StorageTextureAccess::WriteOnly), // child
         ),
-    )
+    );
+    //let label: Cow<'static, str> = Cow::Borrowed("mip_layout");
+    BindGroupLayoutDescriptor {
+        label: Cow::Borrowed("mip_layout"),
+        entries: entries.into_iter().cloned().collect(), // 👈 convert to Vec<BindGroupLayoutEntry>
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -62,17 +59,16 @@ impl MipPipelineKey {
 
 #[derive(Resource)]
 pub struct MipPipelines {
-    pub(crate) mip_layouts: HashMap<AttachmentFormat, BindGroupLayout>,
+    pub(crate) mip_layouts: HashMap<AttachmentFormat, BindGroupLayoutDescriptor>,
     mip_shader: Handle<Shader>,
 }
 
 impl FromWorld for MipPipelines {
     fn from_world(world: &mut World) -> Self {
-        let device = world.resource::<RenderDevice>();
         let asset_server = world.resource::<AssetServer>();
 
         let mip_layouts = AttachmentFormat::iter()
-            .map(|format| (format, create_mip_layout(device, format)))
+            .map(|format| (format, create_mip_layout(format)))
             .collect();
         let mip_shader = asset_server.load(MIP_SHADER);
 

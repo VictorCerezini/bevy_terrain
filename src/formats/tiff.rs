@@ -2,6 +2,7 @@ use bevy::{
     asset::{AssetLoader, LoadContext, RenderAssetUsages, io::Reader},
     image::ImageLoaderError,
     prelude::{Image, Result, Vec},
+    reflect::TypePath,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
 use bytemuck::cast_slice;
@@ -11,7 +12,7 @@ use tiff::{
     decoder::{Decoder, DecodingResult},
 };
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 pub struct TiffLoader;
 impl AssetLoader for TiffLoader {
     type Asset = Image;
@@ -45,7 +46,7 @@ impl AssetLoader for TiffLoader {
             DecodingResult::F16(_f16s) => unimplemented!(),
         };
 
-        let path_ref = ctx.asset_path();
+        let path_ref = ctx.path();
         let color_type = decoder.colortype().unwrap_or_else(|err| {
             panic!(
                 "Header of .tif does not define a colortype or dtype\nPath: {path_ref:?}\nDetails: {err:?}"

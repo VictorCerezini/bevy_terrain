@@ -7,6 +7,7 @@ use crate::{
 };
 
 use bevy::{
+    light::GlobalAmbientLight,
     prelude::*,
     render::{Extract, RenderApp, render_resource::*},
     window::{CursorOptions, PrimaryWindow},
@@ -338,7 +339,7 @@ pub(crate) fn debug_lighting(mut commands: Commands) {
         },
         Transform::from_xyz(-1.0, 1.0, -3.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
-    commands.insert_resource(AmbientLight {
+    commands.insert_resource(GlobalAmbientLight {
         brightness: 100.0,
         ..default()
     });

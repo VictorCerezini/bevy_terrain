@@ -5,12 +5,9 @@ use crate::{
     math::{TerrainShape, TileCoordinate},
     terrain_data::{AttachmentConfig, AttachmentLabel},
 };
-use bevy::{
-    asset::ron, ecs::entity::hash_map::EntityHashMap, platform::collections::HashMap, prelude::*,
-};
+use bevy::{ecs::entity::hash_map::EntityHashMap, platform::collections::HashMap, prelude::*};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
-
 /// Resource that stores components that are associated to a terrain entity.
 /// This is used to persist components in the render world.
 #[derive(Deref, DerefMut, Resource)]
