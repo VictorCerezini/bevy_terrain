@@ -44,7 +44,7 @@
 //     tile_index: u32,
 // }
 //
-// pub(crate) fn create_split_layout(device: &RenderDevice) -> BindGroupLayout {
+// pub(crate) fn create_split_layout(device: &RenderDevice) -> BindGroupLayoutDescriptor {
 //     device.create_bind_group_layout(
 //         None,
 //         &BindGroupLayoutEntries::sequential(
@@ -58,14 +58,14 @@
 //     )
 // }
 //
-// pub(crate) fn create_stitch_layout(device: &RenderDevice) -> BindGroupLayout {
+// pub(crate) fn create_stitch_layout(device: &RenderDevice) -> BindGroupLayoutDescriptor {
 //     device.create_bind_group_layout(
 //         None,
 //         &BindGroupLayoutEntries::single(ShaderStages::COMPUTE, uniform_buffer::<StitchData>(false)),
 //     )
 // }
 //
-// pub(crate) fn create_downsample_layout(device: &RenderDevice) -> BindGroupLayout {
+// pub(crate) fn create_downsample_layout(device: &RenderDevice) -> BindGroupLayoutDescriptor {
 //     device.create_bind_group_layout(
 //         None,
 //         &BindGroupLayoutEntries::single(

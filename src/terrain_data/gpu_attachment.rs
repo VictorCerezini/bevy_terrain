@@ -301,10 +301,15 @@ impl GpuAttachment {
         mip_pipelines: &MipPipelines,
     ) {
         for (mip_level, atlas_indices) in self.mips_to_generate.iter().enumerate() {
+            let bind_group = &mip_pipelines.mip_layouts[&self.buffer_info.format];
+            let layout = device.create_bind_group_layout(
+                None,
+                &bind_group.entries.to_vec(),
+            );
             for atlas_index in atlas_indices {
                 self.mip_bind_groups[mip_level].push(device.create_bind_group(
                     None,
-                    &mip_pipelines.mip_layouts[&self.buffer_info.format],
+                    &layout,
                     &BindGroupEntries::sequential((
                         &GpuBuffer::create(device, atlas_index, BufferUsages::UNIFORM),
                         &self.mip_views[mip_level - 1],

@@ -73,10 +73,10 @@ pub(crate) use self::mipmap::*;
 //
 // #[derive(Resource)]
 // pub struct TerrainPreprocessPipelines {
-//     attachment_layout: BindGroupLayout,
-//     split_layout: BindGroupLayout,
-//     stitch_layout: BindGroupLayout,
-//     downsample_layout: BindGroupLayout,
+//     attachment_layout: BindGroupLayoutDescriptor,
+//     split_layout: BindGroupLayoutDescriptor,
+//     stitch_layout: BindGroupLayoutDescriptor,
+//     downsample_layout: BindGroupLayoutDescriptor,
 //     split_shader: Handle<Shader>,
 //     stitch_shader: Handle<Shader>,
 //     downsample_shader: Handle<Shader>,

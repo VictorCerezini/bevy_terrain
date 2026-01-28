@@ -1,6 +1,6 @@
 use crate::{
     math::{Coordinate, TerrainShape, TileCoordinate},
-    render::{TerrainViewUniform, TileTreeUniform},
+    render::TerrainViewUniform,
     terrain::TerrainConfig,
     terrain_data::{INVALID_ATLAS_INDEX, INVALID_LOD, TileAtlas},
     terrain_view::{TerrainViewComponents, TerrainViewConfig},
@@ -399,9 +399,7 @@ impl TileTree {
             terrain_view_buffer.set_data(TerrainViewUniform::from(tile_tree));
 
             let tile_tree_buffer = buffers.get_mut(&tile_tree.tile_tree_buffer).unwrap();
-            tile_tree_buffer.set_data(TileTreeUniform {
-                entries: tile_tree.data.clone().into_iter().collect_vec(),
-            });
+            tile_tree_buffer.set_data(tile_tree.data.clone().into_iter().collect_vec());
         }
     }
 

@@ -15,12 +15,7 @@ use bevy::{
             SortedPhaseItem, TrackedRenderPass, ViewSortedRenderPhases,
         },
         render_resource::{
-            BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-            CommandEncoderDescriptor, CompareFunction, DepthStencilState, Extent3d, FragmentState,
-            LoadOp, MultisampleState, Operations, PipelineCache, RenderPassDepthStencilAttachment,
-            RenderPassDescriptor, RenderPipelineDescriptor, ShaderStages, StoreOp, Texture,
-            TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-            TextureView, TextureViewDescriptor, binding_types::texture_depth_2d_multisampled,
+            BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedRenderPipelineId, CommandEncoderDescriptor, CompareFunction, DepthStencilState, Extent3d, FragmentState, LoadOp, MultisampleState, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor, RenderPipelineDescriptor, ShaderStages, StoreOp, Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, binding_types::texture_depth_2d_multisampled
         },
         renderer::{RenderContext, RenderDevice},
         sync_world::MainEntity,
@@ -28,7 +23,7 @@ use bevy::{
         view::{RetainedViewEntity, ViewDepthTexture, ViewTarget},
     },
 };
-use std::ops::Range;
+use std::{borrow::Cow, ops::Range};
 
 pub(crate) const TERRAIN_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32FloatStencil8;
 
@@ -205,20 +200,23 @@ impl FromWorld for DepthCopyPipeline {
     fn from_world(world: &mut World) -> Self {
         let device = world.resource::<RenderDevice>();
         let pipeline_cache = world.resource::<PipelineCache>();
-
+        let entries_list = BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (texture_depth_2d_multisampled(),));
+        let descriptor = BindGroupLayoutDescriptor {
+            label: Cow::Borrowed("terrain_layout"),
+            entries: entries_list.to_vec(),
+        };
         let layout = device.create_bind_group_layout(
             None,
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (texture_depth_2d_multisampled(),),
-            ),
+            &entries_list,
         );
         let fullscreen_shader = world.resource::<FullscreenShader>().clone();
         let vertex_state = fullscreen_shader.to_vertex_state();
 
         let id = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
             label: None,
-            layout: vec![layout.clone()],
+            layout: vec![descriptor.clone()],
             push_constant_ranges: Vec::new(),
             vertex: vertex_state,
             fragment: Some(FragmentState {
