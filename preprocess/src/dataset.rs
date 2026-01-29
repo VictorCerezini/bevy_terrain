@@ -158,7 +158,8 @@ impl PreprocessContext {
         // } else {
         //     build_vrt(None, &src_datasets, None)?
         // };
-
+        let driver = DriverManager::get_driver_by_name("GTiff")?;
+        println!("{}", driver.short_name());
         let mut paths = src_path
             .iter()
             .flat_map(|p| {
@@ -169,11 +170,18 @@ impl PreprocessContext {
                 }
             })
             .filter_map(|path| match path.extension().and_then(|e| e.to_str()) {
-                Some("tif") | Some("tiff") => Dataset::open(&path).ok(),
+                Some("tif") | Some("tiff") => match Dataset::open(&path) {
+                    Ok(ds) => Some(ds),
+                    Err(err) => {
+                        eprintln!("Failed to open {:?}: {}", path, err);
+                        None
+                    }
+                },
                 _ => None,
             });
 
         let first = paths.next();
+
         let second = paths.next();
 
         let src_dataset = match (first, second) {
@@ -337,14 +345,10 @@ pub(crate) fn create_empty_dataset<T: Copy + GdalType>(
 }
 
 pub fn delete_directory(directory: &Path) {
-    // This method has issues with deleting hidden files on MacOS
-    // let _ = fs::remove_dir_all(directory).unwrap();
-
-    Command::new("rm")
-        .arg("-rf")
-        .arg(directory)
-        .output()
-        .unwrap();
+    if directory.exists() {
+        fs::remove_dir_all(directory)
+            .expect("Failed to delete directory");
+    }
 }
 
 pub fn clear_directory(directory: &Path) {

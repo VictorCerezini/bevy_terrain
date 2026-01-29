@@ -93,7 +93,6 @@ pub fn preprocess(src_dataset: Dataset, context: &mut PreprocessContext) {
         GdalDataType::UInt16 => preprocess_gen!(u16),
         GdalDataType::UInt32 => preprocess_gen!(u32),
         GdalDataType::UInt64 => preprocess_gen!(u64),
-        GdalDataType::Int8 => preprocess_gen!(i8),
         GdalDataType::Int16 => preprocess_gen!(i16),
         GdalDataType::Int32 => preprocess_gen!(i32),
         GdalDataType::Int64 => preprocess_gen!(i64),
@@ -112,7 +111,13 @@ fn save_terrain_config(tiles: Vec<TileCoordinate>, context: &PreprocessContext) 
         side_length: 86400.,
     };
 
-    config.path = context.terrain_path.to_str().unwrap().to_string();
+    let path = context.terrain_path.to_str().unwrap().replace("\\", "/");
+    config.path = if let Some(index) = path.rfind("assets/") {
+        path[index..].to_string()
+    } else {
+        path
+    };
+
     config.add_attachment(context.attachment_label.clone(), context.attachment.clone());
 
     if context.attachment_label == AttachmentLabel::Height {

@@ -128,7 +128,6 @@ pub fn create_mask_and_fill_no_data(
             GdalDataType::UInt16 => create_mask_and_fill_no_data_gen!(u16),
             GdalDataType::UInt32 => panic!("This is not supported."),
             GdalDataType::UInt64 => panic!("This is not supported."),
-            GdalDataType::Int8 => panic!("This is not supported."),
             GdalDataType::Int16 => create_mask_and_fill_no_data_gen!(i16),
             GdalDataType::Int32 => panic!("This is not supported."),
             GdalDataType::Int64 => panic!("This is not supported."),

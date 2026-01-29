@@ -7,4 +7,5 @@ assets/**/config.tc
 assets/terrains
 assets/_terrains
 assets/source_data
+preprocess/assets
 .nvim*
