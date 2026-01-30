@@ -3,6 +3,7 @@ use bevy::{
     asset::{AssetServer, Assets, Handle},
     image::Image,
     prelude::*,
+    render::render_resource::TextureFormat,
 };
 use slab::Slab;
 
@@ -40,7 +41,18 @@ impl DefaultLoader {
         self.loading_tiles.retain(|_, tile| {
             if asset_server.is_loaded(tile.handle.id()) {
                 let image = images.get(tile.handle.id()).unwrap();
-                let data = AttachmentData::from_bytes(image.data.as_ref().unwrap(), tile.format);
+                
+                let data = if image.texture_descriptor.format == TextureFormat::R8Unorm && tile.format == AttachmentFormat::Rgba8U {
+                    let bytes = image.data.as_ref().unwrap();
+                    let mut new_data = Vec::with_capacity(bytes.len() * 4);
+                    for &b in bytes {
+                        new_data.extend_from_slice(&[b, b, b, 255]);
+                    }
+                    AttachmentData::from_bytes(&new_data, tile.format)
+                } else {
+                    AttachmentData::from_bytes(image.data.as_ref().unwrap(), tile.format)
+                };
+
                 atlas.tile_loaded(tile.tile.clone(), data);
 
                 false
