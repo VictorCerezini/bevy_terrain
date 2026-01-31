@@ -41,16 +41,29 @@ impl DefaultLoader {
         self.loading_tiles.retain(|_, tile| {
             if asset_server.is_loaded(tile.handle.id()) {
                 let image = images.get(tile.handle.id()).unwrap();
-                
+                let bytes = image.data.as_ref().unwrap();
+
                 let data = if image.texture_descriptor.format == TextureFormat::R8Unorm && tile.format == AttachmentFormat::Rgba8U {
-                    let bytes = image.data.as_ref().unwrap();
                     let mut new_data = Vec::with_capacity(bytes.len() * 4);
                     for &b in bytes {
                         new_data.extend_from_slice(&[b, b, b, 255]);
                     }
                     AttachmentData::from_bytes(&new_data, tile.format)
+                } else if (image.texture_descriptor.format == TextureFormat::Rgba8Unorm
+                    || image.texture_descriptor.format == TextureFormat::Rgba8UnormSrgb)
+                    && tile.format == AttachmentFormat::Rgba8U
+                    && bytes.len()
+                        == (image.texture_descriptor.size.width
+                            * image.texture_descriptor.size.height
+                            * 3) as usize
+                {
+                    let mut new_data = Vec::with_capacity(bytes.len() / 3 * 4);
+                    for chunk in bytes.chunks(3) {
+                        new_data.extend_from_slice(&[chunk[0], chunk[1], chunk[2], 255]);
+                    }
+                    AttachmentData::from_bytes(&new_data, tile.format)
                 } else {
-                    AttachmentData::from_bytes(image.data.as_ref().unwrap(), tile.format)
+                    AttachmentData::from_bytes(bytes, tile.format)
                 };
 
                 atlas.tile_loaded(tile.tile.clone(), data);
