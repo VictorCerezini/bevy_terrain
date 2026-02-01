@@ -4,9 +4,9 @@ use bytemuck::cast_slice;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Error, path::PathBuf, str::FromStr};
-use strum_macros::EnumIter;
+use strum_macros::{Display, EnumIter};
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, Hash, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, Hash, Display, Default)]
 pub enum AttachmentLabel {
     #[default]
     Height,
@@ -108,6 +108,7 @@ pub struct AttachmentConfig {
     pub texture_size: u32,
     /// The overlapping border size around the tile, used to prevent sampling artifacts.
     pub border_size: u32,
+    pub side_length: f64,
     pub mip_level_count: u32,
     pub mask: bool,
     /// The format of the attachment.
@@ -119,6 +120,7 @@ impl Default for AttachmentConfig {
         Self {
             texture_size: 512,
             border_size: 2,
+            side_length: 86400000.,
             mip_level_count: 2,
             mask: false,
             format: AttachmentFormat::Rgba8U,
@@ -164,6 +166,17 @@ impl AttachmentData {
             AttachmentFormat::R16I => Self::R16I(cast_slice(data).to_vec()),
             AttachmentFormat::Rg16U => Self::Rg16U(cast_slice(data).to_vec()),
             AttachmentFormat::R32F => Self::R32F(cast_slice(data).to_vec()),
+        }
+    }
+
+    pub(crate) fn new_default(format: AttachmentFormat, size: u32) -> Self {
+        let count = (size * size) as usize;
+        match format {
+            AttachmentFormat::Rgb8U | AttachmentFormat::Rgba8U => Self::Rgba8U(vec![[0; 4]; count]),
+            AttachmentFormat::R16U => Self::R16U(vec![0; count]),
+            AttachmentFormat::R16I => Self::R16I(vec![0; count]),
+            AttachmentFormat::Rg16U => Self::Rg16U(vec![[0; 2]; count]),
+            AttachmentFormat::R32F => Self::R32F(vec![0.0; count]),
         }
     }
 

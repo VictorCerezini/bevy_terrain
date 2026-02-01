@@ -82,7 +82,16 @@ impl DefaultLoader {
 
                 let path = tile
                     .coordinate
-                    .path(&attachment.path.join(String::from(&tile.label)));
+                    .path(&attachment.path.join(String::from(&tile.label)))
+                    .to_string_lossy()
+                    .replace('\\', "/");
+
+                if !std::path::Path::new("assets").join(&path).exists() {
+                    warn!("Missing terrain tile: assets/{}", path);
+                    let data = AttachmentData::new_default(attachment.format, attachment.texture_size);
+                    atlas.tile_loaded(tile.clone(), data);
+                    continue;
+                }
 
                 self.loading_tiles.insert(LoadingTile {
                     handle: asset_server.load(path),

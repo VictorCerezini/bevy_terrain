@@ -1,5 +1,5 @@
 import bevy_terrain::types::{AtlasTile};
-import bevy_terrain::bindings::{terrain, terrain_view, attachments, height_attachment, albedo_atlas, albedo_attachment, terrain_sampler};
+import bevy_terrain::bindings::{terrain, terrain_view, attachments, height_attachment, Albedo_attachment, terrain_sampler};
 import bevy_terrain::attachments::{compute_sample_uv, sample_height, sample_height_mask, compute_slope, sample_surface_gradient, relief_shading};
 import bevy_terrain::fragment::{FragmentInput, FragmentOutput, fragment_info, fragment_output, fragment_debug};
 import bevy_terrain::functions::{lookup_tile, inverse_mix, high_precision};
@@ -15,12 +15,12 @@ struct GradientInfo {
 @group(3) @binding(2) var<uniform> gradient_info: GradientInfo;
 
 fn sample_albedo(tile: AtlasTile) -> vec4<f32> {
-    let uv = compute_sample_uv(tile, attachments.albedo);
+    let uv = compute_sample_uv(tile, attachments.Albedo);
 
 @if(SAMPLE_GRAD) {
-    return textureSampleGrad(albedo_attachment, terrain_sampler, uv.uv, tile.index, uv.dx, uv.dy);
+    return textureSampleGrad(Albedo_attachment, terrain_sampler, uv.uv, tile.index, uv.dx, uv.dy);
 } @else {
-    return textureSampleLevel(albedo_attachment, terrain_sampler, uv.uv, tile.index, tile.blend_ratio);
+    return textureSampleLevel(Albedo_attachment, terrain_sampler, uv.uv, tile.index, tile.blend_ratio);
 }
 }
 

@@ -49,7 +49,7 @@ fn main() {
             TerrainDebugPlugin,
             TerrainPickingPlugin,
         ))
-        .insert_resource(TerrainSettings::new(vec!["albedo"]))
+        .insert_resource(TerrainSettings::new(vec!["Albedo"]))
         .add_systems(Startup, initialize)
         .run();
 }

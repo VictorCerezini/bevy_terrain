@@ -19,7 +19,6 @@ use itertools::Itertools;
 use std::os::unix::ffi::OsStrExt;
 
 #[cfg(windows)]
-use std::os::windows::ffi::OsStrExt;
 
 use std::{
     ffi::{CStr, CString, c_char, c_double, c_int, c_void},

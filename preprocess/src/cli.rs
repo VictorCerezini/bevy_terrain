@@ -40,6 +40,8 @@ pub struct Cli {
     pub texture_size: u32,
     #[arg(short, long = "bs", default_value_t = 1)]
     pub border_size: u32,
+    #[arg(short, long = "sl", default_value_t = 86400000.)]
+    pub side_length: f64,
     #[arg(short, long = "m", default_value_t = 1)]
     pub mip_level_count: u32,
     #[arg(default_value = "ru16")]
@@ -76,7 +78,7 @@ impl PreprocessBar<'_> {
         }
     }
 
-    pub(crate) fn callback(&self) -> &ProgressCallback {
+    pub(crate) fn callback(&self) -> &ProgressCallback<'_> {
         self.callback.as_ref()
     }
 

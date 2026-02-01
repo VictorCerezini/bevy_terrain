@@ -1,7 +1,7 @@
 use bevy_terrain::prelude::{AttachmentFormat, AttachmentLabel};
-use bevy_terrain_preprocess::prelude::{
+use bevy_terrain_preprocess::{PreprocessData, prelude::{
     Cli, PreprocessContext, PreprocessDataType, PreprocessNoData, preprocess,
-};
+}};
 use gdal::raster::GdalDataType;
 use std::env::set_var;
 
@@ -138,18 +138,19 @@ fn main() {
     // };
 
     let args = Cli {
-        src_path: vec!["/Volumes/ExternalSSD/saxony/hartenstein_dsm".into()],
-        terrain_path: "assets/terrains/hartenstein".into(),
+        src_path: vec!["assets/source_data/swiss.tif".into()],
+        terrain_path: "../assets/terrains/swiss".into(),
         temp_path: None,
         overwrite: true,
         no_data: PreprocessNoData::Source,
         data_type: PreprocessDataType::DataType(GdalDataType::Float32),
         fill_radius: 32.0,
         create_mask: true,
-        lod_count: None,
+        lod_count: Some(5),
         attachment_label: AttachmentLabel::Height,
         texture_size: 512,
         border_size: 4,
+        side_length: 40000000.,
         mip_level_count: 4,
         format: AttachmentFormat::R32F,
     };
@@ -205,7 +206,13 @@ fn main() {
     //     format: AttachmentFormat::R32F,
     // };
 
-    let (src_dataset, mut context) = PreprocessContext::from_cli(args).unwrap();
+    let mut data_list: Vec<PreprocessData> = [args]
+    .into_iter()
+    .map(|args| {
+        let (dataset, context) = PreprocessContext::from_cli(args).unwrap();
+        PreprocessData { dataset, context }
+    })
+    .collect();
 
-    preprocess(src_dataset, &mut context);
+    preprocess(&mut data_list);
 }

@@ -14,10 +14,7 @@ use gdal::{
 };
 use itertools::Itertools;
 use std::{
-    fs, iter,
-    path::{Path, PathBuf},
-    process::Command,
-    str::FromStr,
+    f64, fs, iter, path::{Path, PathBuf}, str::FromStr
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -98,6 +95,7 @@ impl PreprocessContext {
             attachment_label,
             texture_size,
             border_size,
+            side_length,
             mip_level_count,
             format,
         } = args;
@@ -109,6 +107,7 @@ impl PreprocessContext {
             AttachmentConfig {
                 texture_size,
                 border_size,
+                side_length,
                 mip_level_count,
                 mask: create_mask,
                 format,
@@ -158,8 +157,8 @@ impl PreprocessContext {
         // } else {
         //     build_vrt(None, &src_datasets, None)?
         // };
-        let driver = DriverManager::get_driver_by_name("GTiff")?;
-        println!("{}", driver.short_name());
+        //let driver = DriverManager::get_driver_by_name("GTiff")?;
+        //println!("{}", driver.short_name());
         let mut paths = src_path
             .iter()
             .flat_map(|p| {

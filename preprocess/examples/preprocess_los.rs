@@ -1,7 +1,7 @@
 use bevy_terrain::prelude::{AttachmentFormat, AttachmentLabel};
-use bevy_terrain_preprocess::prelude::{
+use bevy_terrain_preprocess::{PreprocessData, prelude::{
     Cli, PreprocessContext, PreprocessDataType, PreprocessNoData, preprocess,
-};
+}};
 use gdal::raster::GdalDataType;
 
 fn main() {
@@ -18,11 +18,18 @@ fn main() {
         attachment_label: AttachmentLabel::Height,
         texture_size: 512,
         border_size: 2,
+        side_length: 86400000.,
         mip_level_count: 1,
         format: AttachmentFormat::R32F,
     };
 
-    let (src_dataset, mut context) = PreprocessContext::from_cli(args).unwrap();
+    let mut data_list: Vec<PreprocessData> = [args]
+    .into_iter()
+    .map(|args| {
+        let (dataset, context) = PreprocessContext::from_cli(args).unwrap();
+        PreprocessData { dataset, context }
+    })
+    .collect();
 
-    preprocess(src_dataset, &mut context);
+    preprocess(&mut data_list);
 }

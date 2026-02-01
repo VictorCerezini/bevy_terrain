@@ -24,7 +24,7 @@ pub struct Transform<'a> {
 }
 
 pub fn reproject<T>(
-    src_dataset: Dataset,
+    src_dataset: &Dataset,
     context: &mut PreprocessContext,
     progress_callback: Option<&ProgressCallback>,
 ) -> PreprocessResult<HashMap<u32, FaceInfo>>
@@ -214,7 +214,7 @@ pub fn compute_transforms<'a>(
 }
 
 pub fn reproject_planar<T>(
-    src_dataset: Dataset,
+    src_dataset: &Dataset,
     context: &mut PreprocessContext,
     progress_callback: Option<&ProgressCallback>,
 ) -> PreprocessResult<HashMap<u32, FaceInfo>> 
