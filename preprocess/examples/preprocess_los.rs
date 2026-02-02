@@ -17,8 +17,9 @@ fn main() {
         lod_count: None,
         attachment_label: AttachmentLabel::Height,
         texture_size: 512,
-        border_size: 2,
+        border_size: 4,
         side_length: 86400000.,
+        radius: Some(86400000.),
         mip_level_count: 1,
         format: AttachmentFormat::R32F,
     };

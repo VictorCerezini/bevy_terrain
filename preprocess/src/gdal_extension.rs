@@ -3,16 +3,15 @@ use crate::{
     result::{PreprocessError, PreprocessResult},
 };
 use bevy_math::U64Vec2;
-use gag::Gag;
 use gdal::{
     Dataset, GeoTransform,
     errors::{GdalError, Result as GdalResult},
 };
 use gdal_sys::{
-    CPLErr, CPLErrorReset, CPLGetLastErrorMsg, CPLGetLastErrorNo, GDALAccess::GA_Update,
-    GDALChunkAndWarpImage, GDALCreateWarpOptions, GDALDestroyWarpOperation, GDALDestroyWarpOptions,
-    GDALDummyProgress, GDALFillNodata, GDALOpenShared, GDALResampleAlg, GDALSuggestedWarpOutput,
-    GDALWarpOperationH,
+    CPLErr, CPLErrorReset, CPLGetLastErrorMsg, CPLGetLastErrorNo, CPLPopErrorHandler,
+    CPLPushErrorHandler, GDALAccess::GA_Update, GDALChunkAndWarpImage, GDALCreateWarpOptions,
+    GDALDestroyWarpOperation, GDALDestroyWarpOptions, GDALDummyProgress, GDALFillNodata,
+    GDALOpenShared, GDALResampleAlg, GDALSuggestedWarpOutput, GDALWarpOperationH,
 };
 use itertools::Itertools;
 #[cfg(not(windows))]
@@ -250,12 +249,19 @@ pub struct SuggestedWarpOutput {
     pub geo_transform: GeoTransform,
 }
 
+unsafe extern "C" fn quiet_error_handler(
+    _e_err_class: CPLErr::Type,
+    _n_error: c_int,
+    _psz_error_msg: *const c_char,
+) {
+}
+
 impl SuggestedWarpOutput {
     pub fn compute(
         src: &Dataset,
         transformer: &mut GDALCustomTransformer,
     ) -> GdalResult<Option<SuggestedWarpOutput>> {
-        let _gag_stderr = Gag::stderr();
+        unsafe { CPLPushErrorHandler(Some(quiet_error_handler)) };
 
         let mut geo_transform = GeoTransform::default();
         let (mut width, mut height) = (0, 0);
@@ -270,6 +276,8 @@ impl SuggestedWarpOutput {
                 &mut height,
             )
         };
+
+        unsafe { CPLPopErrorHandler() };
 
         if rv != CPLErr::CE_None {
             let error = last_cpl_err(rv);

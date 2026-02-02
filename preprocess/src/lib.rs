@@ -50,8 +50,7 @@ fn preprocess_gen<T: Copy + GdalType + PartialEq + NumCast + Send + Sync>(
 
     let start_preprocessing = Instant::now();
 
-    // let is_planar = matches!(context.shape, Some(TerrainShape::Plane { .. }));
-    let is_planar = true;
+    let is_planar = matches!(context.shape, TerrainShape::Plane { .. });
 
     let progress_bar = PreprocessBar::new("Reprojecting".to_string());
 
@@ -181,10 +180,7 @@ fn save_terrain_config(tiles: Vec<TileCoordinate>, context: &PreprocessContext) 
 
     let mut config = TerrainConfig::load_file(&file_path).unwrap_or_default();
 
-    // config.shape = TerrainShape::WGS84;
-    config.shape = TerrainShape::Plane {
-        side_length: context.attachment.side_length,
-    };
+    config.shape = context.shape;
 
     let path = context.terrain_path.to_str().unwrap().replace("\\", "/");
     config.path = if let Some(index) = path.rfind("assets/") {

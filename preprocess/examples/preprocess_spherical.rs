@@ -137,22 +137,42 @@ fn main() {
     //     format: AttachmentFormat::Rgba8U,
     // };
 
-    let args = Cli {
-        src_path: vec!["assets/source_data/swiss.tif".into()],
-        terrain_path: "../assets/terrains/swiss".into(),
+    let args1 = Cli {
+        src_path: vec!["assets/source_data/gebco_earth.tif".into()],
+        terrain_path: "../assets/terrains/earth".into(),
         temp_path: None,
         overwrite: true,
         no_data: PreprocessNoData::Source,
         data_type: PreprocessDataType::DataType(GdalDataType::Float32),
         fill_radius: 32.0,
         create_mask: true,
-        lod_count: Some(5),
+        lod_count: None,
         attachment_label: AttachmentLabel::Height,
         texture_size: 512,
         border_size: 4,
-        side_length: 40000000.,
+        side_length: 4000000.,
+        radius: Some(4000000.0),
         mip_level_count: 4,
         format: AttachmentFormat::R32F,
+    };
+
+    let args2 = Cli {
+        src_path: vec!["assets/source_data/true_marble.tif".into()],
+        terrain_path: "../assets/terrains/earth".into(),
+        temp_path: None,
+        overwrite: true,
+        no_data: PreprocessNoData::NoData(0.0),
+        data_type: PreprocessDataType::DataType(GdalDataType::UInt8),
+        fill_radius: 32.0,
+        create_mask: false,
+        lod_count: None,
+        attachment_label: AttachmentLabel::Custom("Albedo".to_string()),
+        texture_size: 512,
+        border_size: 4,
+        side_length: 4000000.,
+        radius: Some(4000000.0),
+        mip_level_count: 4,
+        format: AttachmentFormat::Rgba8U,
     };
 
     // let args = Cli {
@@ -206,7 +226,7 @@ fn main() {
     //     format: AttachmentFormat::R32F,
     // };
 
-    let mut data_list: Vec<PreprocessData> = [args]
+    let mut data_list: Vec<PreprocessData> = [args1, args2]
     .into_iter()
     .map(|args| {
         let (dataset, context) = PreprocessContext::from_cli(args).unwrap();

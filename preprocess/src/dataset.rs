@@ -5,6 +5,7 @@ use crate::{
 use bevy_math::{IVec2, U64Vec2};
 use bevy_terrain::{
     math::TileCoordinate,
+    prelude::TerrainShape,
     terrain_data::{AttachmentConfig, AttachmentFormat, AttachmentLabel},
 };
 use gdal::{
@@ -78,6 +79,7 @@ pub struct PreprocessContext {
     pub(crate) lod_count: Option<u32>,
     pub(crate) attachment_label: AttachmentLabel,
     pub(crate) attachment: AttachmentConfig,
+    pub(crate) shape: TerrainShape,
 }
 
 impl PreprocessContext {
@@ -96,9 +98,16 @@ impl PreprocessContext {
             texture_size,
             border_size,
             side_length,
+            radius,
             mip_level_count,
             format,
         } = args;
+
+        let shape = if let Some(radius) = radius {
+            TerrainShape::Sphere { radius }
+        } else {
+            TerrainShape::Plane { side_length }
+        };
 
         PreprocessContext::initialize(
             terrain_path,
@@ -112,6 +121,7 @@ impl PreprocessContext {
                 mask: create_mask,
                 format,
             },
+            shape,
             src_path,
             temp_path,
             no_data,
@@ -128,6 +138,7 @@ impl PreprocessContext {
         lod_count: Option<u32>,
         attachment_label: AttachmentLabel,
         attachment: AttachmentConfig,
+        shape: TerrainShape,
         src_path: Vec<PathBuf>,
         temp_dir: Option<PathBuf>,
         no_data: PreprocessNoData,
@@ -243,6 +254,7 @@ impl PreprocessContext {
                 attachment,
                 terrain_path,
                 lod_count,
+                shape,
             },
         ))
     }

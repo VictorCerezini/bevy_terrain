@@ -19,7 +19,7 @@ fn main() {
 
     let args1 = Cli {
         src_path: vec!["assets/source_data/gebco_earth.tif".into()],
-        terrain_path: "../assets/terrains/earth".into(),
+        terrain_path: "../assets/terrains/earth_flat".into(),
         temp_path: None,
         overwrite: true,
         no_data: PreprocessNoData::Source,
@@ -30,14 +30,15 @@ fn main() {
         attachment_label: AttachmentLabel::Height,
         texture_size: 512,
         border_size: 2,
-        side_length: 400000000.,
+        side_length: 4000000.,
+        radius: None,
         mip_level_count: 1,
         format: AttachmentFormat::R32F,
     };
 
     let args2 = Cli {
         src_path: vec!["assets/source_data/true_marble.tif".into()],
-        terrain_path: "../assets/terrains/earth".into(),
+        terrain_path: "../assets/terrains/earth_flat".into(),
         temp_path: None,
         overwrite: true,
         no_data: PreprocessNoData::NoData(0.0),
@@ -48,7 +49,8 @@ fn main() {
         attachment_label: AttachmentLabel::Custom("Albedo".to_string()),
         texture_size: 512,
         border_size: 2,
-        side_length: 400000000.,
+        side_length: 4000000.,
+        radius: None,
         mip_level_count: 1,
         format: AttachmentFormat::Rgba8U,
     };

@@ -106,18 +106,24 @@ impl TileAtlas {
             lod_count: config.lod_count,
             min_height: config.min_height,
             max_height: config.max_height,
-            height_scale: match config.shape {
-                TerrainShape::Spheroid { major_axis, .. } => {
-                    // For spherical terrain, use 5% of the radius as scaling factor
-                    major_axis as f32 * 0.05
-                }
-                TerrainShape::Sphere { radius } => {
-                    // For spherical terrain, use 5% of the radius as scaling factor
-                    radius as f32 * 0.05
-                }
-                TerrainShape::Plane { .. } => {
-                    // For planar terrain, use a reasonable default
-                    128.0
+            height_scale: if let Some(attachment) = config.attachments.get(&AttachmentLabel::Height)
+                && matches!(attachment.format, crate::terrain_data::AttachmentFormat::R32F)
+            {
+                1.0
+            } else {
+                match config.shape {
+                    TerrainShape::Spheroid { major_axis, .. } => {
+                        // For spherical terrain, use 5% of the radius as scaling factor
+                        major_axis as f32 * 0.05
+                    }
+                    TerrainShape::Sphere { radius } => {
+                        // For spherical terrain, use 5% of the radius as scaling factor
+                        radius as f32 * 0.05
+                    }
+                    TerrainShape::Plane { .. } => {
+                        // For planar terrain, use a reasonable default
+                        128.0
+                    }
                 }
             },
             shape: config.shape,
