@@ -18,6 +18,7 @@ fn main() {
         attachment_label: AttachmentLabel::Height,
         texture_size: 512,
         side_length: 400000.,
+        height_scale: 0.,
         radius: None,
         border_size: 4,
         mip_level_count: 2,

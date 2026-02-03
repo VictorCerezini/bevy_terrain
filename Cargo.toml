@@ -49,6 +49,11 @@ path = "examples/spherical.rs"
 required-features = ["high_precision"]
 
 [[example]]
+name = "planar"
+path = "examples/planar.rs"
+required-features = ["high_precision"]
+
+[[example]]
 name = "precision_demo"
 path = "examples/precision_demo.rs"
 required-features = ["high_precision", "rand"]

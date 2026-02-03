@@ -19,6 +19,7 @@ fn main() {
         texture_size: 512,
         border_size: 4,
         side_length: 86400000.,
+        height_scale: 0.,
         radius: Some(86400000.),
         mip_level_count: 1,
         format: AttachmentFormat::R32F,

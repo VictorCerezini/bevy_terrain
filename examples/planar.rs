@@ -88,7 +88,7 @@ fn initialize(
     });
 
     commands.spawn_terrain(
-        asset_server.load("terrains/swiss/config.tc.ron"),
+        asset_server.load("terrains/earth_flat/config.tc.ron"),
         TerrainViewConfig::default(),
         CustomMaterial {
             gradient: gradient1.clone(),

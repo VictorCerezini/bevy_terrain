@@ -31,6 +31,8 @@ pub struct TerrainConfig {
     pub lod_count: u32,
     pub min_height: f32,
     pub max_height: f32,
+    #[serde(default)]
+    pub height_scale: f32,
     /// The attachments of the terrain.
     pub attachments: HashMap<AttachmentLabel, AttachmentConfig>,
     /// The tiles of the terrain.
@@ -44,6 +46,7 @@ impl Default for TerrainConfig {
             lod_count: 1,
             min_height: 0.0,
             max_height: 1.0,
+            height_scale: 0.0,
             path: default(),
             tiles: default(),
             attachments: default(),

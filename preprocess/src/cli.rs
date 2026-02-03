@@ -46,6 +46,8 @@ pub struct Cli {
     pub radius: Option<f64>,
     #[arg(short, long = "m", default_value_t = 1)]
     pub mip_level_count: u32,
+    #[arg(short, long = "h", default_value_t = 0.0)]
+    pub height_scale: f32,
     #[arg(default_value = "ru16")]
     pub format: AttachmentFormat,
 }

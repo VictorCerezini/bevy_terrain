@@ -75,6 +75,7 @@ pub struct PreprocessContext {
     pub(crate) overwrite: bool,
     pub(crate) min_height: f32,
     pub(crate) max_height: f32,
+    pub(crate) height_scale: f32,
     pub(crate) terrain_path: PathBuf,
     pub(crate) lod_count: Option<u32>,
     pub(crate) attachment_label: AttachmentLabel,
@@ -100,6 +101,7 @@ impl PreprocessContext {
             side_length,
             radius,
             mip_level_count,
+            height_scale,
             format,
         } = args;
 
@@ -129,6 +131,7 @@ impl PreprocessContext {
             fill_radius,
             create_mask,
             overwrite,
+            height_scale,
         )
     }
 
@@ -146,6 +149,7 @@ impl PreprocessContext {
         fill_radius: f32,
         create_mask: bool,
         overwrite: bool,
+        height_scale: f32,
     ) -> PreprocessResult<(Dataset, Self)> {
         //let mut src_datasets = src_path
         // .iter()
@@ -255,6 +259,7 @@ impl PreprocessContext {
                 terrain_path,
                 lod_count,
                 shape,
+                height_scale,
             },
         ))
     }

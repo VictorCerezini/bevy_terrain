@@ -29,3 +29,15 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 [[example]]
 name = "preprocess_spherical"
 path = "examples/preprocess_spherical.rs"
+
+[[example]]
+name = "preprocess_los"
+path = "examples/preprocess_los.rs"
+
+[[example]]
+name = "preprocess_earth"
+path = "examples/preprocess_earth.rs"
+
+[[example]]
+name = "preprocess_swiss"
+path = "examples/preprocess_swiss.rs"

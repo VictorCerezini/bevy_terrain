@@ -194,6 +194,7 @@ fn save_terrain_config(tiles: Vec<TileCoordinate>, context: &PreprocessContext) 
     if context.attachment_label == AttachmentLabel::Height {
         config.min_height = context.min_height;
         config.max_height = context.max_height;
+        config.height_scale = context.height_scale;
         config.tiles = tiles;
         config.lod_count = context.lod_count.unwrap();
     }

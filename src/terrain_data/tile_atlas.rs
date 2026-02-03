@@ -106,7 +106,9 @@ impl TileAtlas {
             lod_count: config.lod_count,
             min_height: config.min_height,
             max_height: config.max_height,
-            height_scale: if let Some(attachment) = config.attachments.get(&AttachmentLabel::Height)
+            height_scale: if config.height_scale != 0.0 {
+                config.height_scale
+            } else if let Some(attachment) = config.attachments.get(&AttachmentLabel::Height)
                 && matches!(attachment.format, crate::terrain_data::AttachmentFormat::R32F)
             {
                 1.0

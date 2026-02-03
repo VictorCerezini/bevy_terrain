@@ -11,12 +11,21 @@ use ndarray::Axis;
 use num::NumCast;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
+fn clamp_coord(v: isize, max: isize) -> isize {
+    v.max(0).min(max - 1)
+}
+
+
 fn stitch_corners<T: Copy + GdalType + NumCast>(
     tile_dataset: &Dataset,
     dst_offsets: &[(isize, isize)],
     i: usize,
     context: &PreprocessContext,
 ) -> PreprocessResult<()> {
+    if context.attachment.border_size == 0 {
+        return Ok(());
+    }
+
     // Cube corners should be filled with the average of the three adjacent pixels.
     // This assumes, that the side stitching has completed already.
 
@@ -45,19 +54,26 @@ fn stitch_corners<T: Copy + GdalType + NumCast>(
         [(0, 0), (-1, 0), (0, 1)],
     ];
 
+    let (raster_width, raster_height) = tile_dataset.raster_size();
+    let raster_width = raster_width as isize;
+    let raster_height = raster_height as isize;
+
+
     for raster in tile_dataset.rasterbands() {
         let mut raster = raster?;
 
         let corner_values = corner_offsets[corner].map(|offset| {
+            let sx = clamp_coord(src_offset.0 + offset.0, raster_width);
+            let sy = clamp_coord(src_offset.1 + offset.1, raster_height);
+            
             Ok::<T, PreprocessError>(
                 raster
                     .read_as::<T>(
-                        (src_offset.0 + offset.0, src_offset.1 + offset.1),
+                        (sx, sy),
                         (1, 1),
                         (1, 1),
                         None,
-                    )
-                    .unwrap()
+                    )?
                     .data()[0],
             )
         });
@@ -152,6 +168,11 @@ pub(crate) fn stitch<T: Copy + GdalType + NumCast>(
 ) -> PreprocessResult<()> {
     let center_size = context.attachment.center_size() as usize;
     let border_size = context.attachment.border_size as usize;
+
+    if border_size == 0 {
+        return Ok(());
+    }
+
     let offset_size = context.attachment.offset_size() as isize;
 
     let src_offsets: [(isize, isize); 8] = [
