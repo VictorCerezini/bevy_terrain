@@ -5,12 +5,10 @@ use big_space::{
 };
 
 use bevy::{
-    input::mouse::MouseMotion,
-    math::DVec3,
-    prelude::{
-        ButtonInput, Camera3d, Component, Entity, EulerRot, KeyCode, MessageReader, Quat, Query,
-        Reflect, Res, Time, Vec2, default, info,
-    },
+    app::AppExit,
+    ecs::system::Commands, input::mouse::MouseMotion, math::DVec3, prelude::{
+        ButtonInput, Camera3d, Component, Entity, EulerRot, KeyCode, MessageReader, Quat, Query, Reflect, Res, Time, Vec2, With, default, info
+    }, window::{CursorGrabMode, CursorOptions, PrimaryWindow}
 };
 
 #[derive(Clone, Debug, Reflect, Component)]
@@ -54,8 +52,10 @@ impl DebugCameraController {
 
 pub fn debug_camera_controller(
     #[cfg(feature = "high_precision")] grids: Grids,
+    mut commands: Commands,
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
+    mut cursor_options: Query<&mut CursorOptions, With<PrimaryWindow>>,
     mut mouse_move: MessageReader<MouseMotion>,
     #[cfg(feature = "high_precision")] mut camera: Query<(
         Entity,
@@ -85,8 +85,16 @@ pub fn debug_camera_controller(
     #[cfg(not(feature = "high_precision"))]
     let (mut transform, mut controller) = camera.single_mut();
 
-    keyboard.just_pressed(KeyCode::KeyZ).then(|| {
+    let mut cursor_options = cursor_options.single_mut().unwrap();
+
+    if keyboard.just_pressed(KeyCode::KeyZ) {
         controller.enabled = !controller.enabled;
+        cursor_options.grab_mode = match controller.enabled {
+            true => CursorGrabMode::Confined,
+            false => CursorGrabMode::None,
+        };
+        cursor_options.visible = !controller.enabled;
+
         info!(
             "Controller, {:?}",
             match controller.enabled {
@@ -94,7 +102,11 @@ pub fn debug_camera_controller(
                 false => "Disabled",
             }
         );
-    });
+    }
+
+    if keyboard.just_pressed(KeyCode::Escape) {
+        commands.write_message(AppExit::Success);
+    }
 
     if !controller.enabled {
         return;
@@ -104,24 +116,24 @@ pub fn debug_camera_controller(
     let rotation_direction = mouse_move.read().map(|m| -m.delta).sum::<Vec2>(); // x: yaw, y: pitch, z: roll
     let mut acceleration = 0.0;
 
-    keyboard
-        .pressed(KeyCode::ArrowLeft)
-        .then(|| translation_direction.x -= 1.0);
-    keyboard
-        .pressed(KeyCode::ArrowRight)
-        .then(|| translation_direction.x += 1.0);
-    keyboard
-        .pressed(KeyCode::PageUp)
-        .then(|| translation_direction.y += 1.0);
-    keyboard
-        .pressed(KeyCode::PageDown)
-        .then(|| translation_direction.y -= 1.0);
-    keyboard
-        .pressed(KeyCode::ArrowUp)
-        .then(|| translation_direction.z -= 1.0);
-    keyboard
-        .pressed(KeyCode::ArrowDown)
-        .then(|| translation_direction.z += 1.0);
+    if keyboard.pressed(KeyCode::ArrowLeft) || keyboard.pressed(KeyCode::KeyA) {
+        translation_direction.x -= 1.0;
+    }
+    if keyboard.pressed(KeyCode::ArrowRight) || keyboard.pressed(KeyCode::KeyD) {
+        translation_direction.x += 1.0;
+    }
+    if keyboard.pressed(KeyCode::PageUp) || keyboard.pressed(KeyCode::KeyE) {
+        translation_direction.y += 1.0;
+    }
+    if keyboard.pressed(KeyCode::PageDown) || keyboard.pressed(KeyCode::KeyQ) {
+        translation_direction.y -= 1.0;
+    }
+    if keyboard.pressed(KeyCode::ArrowUp) || keyboard.pressed(KeyCode::KeyW) {
+        translation_direction.z -= 1.0;
+    }
+    if keyboard.pressed(KeyCode::ArrowDown) || keyboard.pressed(KeyCode::KeyS) {
+        translation_direction.z += 1.0;
+    }
     keyboard.pressed(KeyCode::Home).then(|| acceleration -= 1.0);
     keyboard.pressed(KeyCode::End).then(|| acceleration += 1.0);
 

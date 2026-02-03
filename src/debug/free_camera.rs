@@ -5,11 +5,36 @@ use bevy::{
     math::{DQuat, DVec2, DVec3, Mat4, Vec2},
     prelude::{
         Camera3d, Component, Entity, FloatExt, Gizmos, KeyCode, MouseButton, Query, Res, Time,
-        Transform, Window, With,
+        Transform, Window, With, Reflect,
     },
     window::{CursorGrabMode, CursorOptions, PrimaryWindow},
 };
 use big_space::prelude::{CellCoord, FloatingOrigin, Grids};
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Reflect)]
+pub enum CameraMode {
+    #[default]
+    Spherical,
+    Planar,
+}
+
+fn ray_plane_intersection(
+    ray_origin: DVec3,
+    ray_direction: DVec3,
+    plane_origin: DVec3,
+    plane_normal: DVec3,
+) -> Option<DVec3> {
+    let denom = plane_normal.dot(ray_direction);
+    if denom.abs() < 1e-6 {
+        return None;
+    }
+    let t = (plane_origin - ray_origin).dot(plane_normal) / denom;
+    if t >= 0.0 {
+        Some(ray_origin + ray_direction * t)
+    } else {
+        None
+    }
+}
 
 fn ray_sphere_intersection(
     ray_origin: DVec3,
@@ -60,6 +85,7 @@ pub struct RotationData {
 #[derive(Clone, Debug, Component)]
 #[require(PickingData, Camera3d, FloatingOrigin = FloatingOrigin)]
 pub struct OrbitalCameraController {
+    pub mode: CameraMode,
     enabled: bool,
     cursor_coords: Vec2,
     anchor_position: DVec3,
@@ -75,6 +101,7 @@ pub struct OrbitalCameraController {
 impl Default for OrbitalCameraController {
     fn default() -> Self {
         Self {
+            mode: CameraMode::default(),
             enabled: true,
             zoom_data: None,
             pan_data: None,
@@ -85,6 +112,15 @@ impl Default for OrbitalCameraController {
             anchor_cell: Default::default(),
             camera_position: Default::default(),
             camera_rotation: Default::default(),
+        }
+    }
+}
+
+impl OrbitalCameraController {
+    pub fn new(mode: CameraMode) -> Self {
+        Self {
+            mode,
+            ..Default::default()
         }
     }
 }
@@ -169,10 +205,15 @@ pub fn orbital_camera_controller(
             controller.anchor_cell = cursor_cell;
             controller.camera_position = cam_pos;
             controller.camera_rotation = cam_rot;
+            let heading = match controller.mode {
+                CameraMode::Spherical => controller.anchor_position - terrain_origin,
+                CameraMode::Planar => DVec3::Y,
+            };
+
             controller.rotation_data = Some(RotationData {
                 target_rotation: DVec2::ZERO,
                 rotation: DVec2::ZERO,
-                initial_tilt: (controller.anchor_position - terrain_origin)
+                initial_tilt: heading
                     .angle_between(controller.camera_position - controller.anchor_position),
             });
         } else {
@@ -258,38 +299,60 @@ pub fn orbital_camera_controller(
 
         let ndc_coords = (pan_data.pan_coords * 2.0 - 1.0).extend(0.0001); // Todo: using f64 we should be able to set this to 1.0 for the near plane
         let translation = pan_data.world_from_clip.project_point3(ndc_coords);
-        let new_cursor_position = grid.grid_position_double(
+        let near_plane_point = grid.grid_position_double(
             &controller.anchor_cell,
             &Transform::from_translation(translation),
         );
 
         let camera_cursor_direction =
-            (new_cursor_position - controller.camera_position).normalize();
+            (near_plane_point - controller.camera_position).normalize();
 
-        let radius = (controller.anchor_position - terrain_origin).length();
+        match controller.mode {
+            CameraMode::Spherical => {
+                let radius = (controller.anchor_position - terrain_origin).length();
 
-        // compute ray sphere intersection, where the sphere has a radius of the length of the anchor position
-        // this way the anchor point should line up correctly with the cursor
-        let Some(new_cursor_position) = ray_sphere_intersection(
-            controller.camera_position,
-            camera_cursor_direction,
-            terrain_origin,
-            radius,
-        ) else {
-            controller.pan_data = None;
-            return;
-        };
+                // compute ray sphere intersection, where the sphere has a radius of the length of the anchor position
+                // this way the anchor point should line up correctly with the cursor
+                let Some(new_cursor_position) = ray_sphere_intersection(
+                    controller.camera_position,
+                    camera_cursor_direction,
+                    terrain_origin,
+                    radius,
+                ) else {
+                    controller.pan_data = None;
+                    return;
+                };
 
-        // based of the anchor position and the cursor hit position compute the new camera transform
-        // the world origin should stay at the center of the screen
-        let initial_direction = (controller.anchor_position - terrain_origin).normalize();
-        let new_direction = (new_cursor_position - terrain_origin).normalize();
+                // based of the anchor position and the cursor hit position compute the new camera transform
+                // the world origin should stay at the center of the screen
+                let initial_direction = (controller.anchor_position - terrain_origin).normalize();
+                let new_direction = (new_cursor_position - terrain_origin).normalize();
 
-        // the camera should be rotated by this amount, so that the panning anchor ends up under the cursor
-        let rotation = DQuat::from_rotation_arc(new_direction, initial_direction);
+                // the camera should be rotated by this amount, so that the panning anchor ends up under the cursor
+                let rotation = DQuat::from_rotation_arc(new_direction, initial_direction);
 
-        new_cam_pos = terrain_origin + rotation * (controller.camera_position - terrain_origin);
-        new_cam_rot = rotation * controller.camera_rotation;
+                new_cam_pos = terrain_origin + rotation * (controller.camera_position - terrain_origin);
+                new_cam_rot = rotation * controller.camera_rotation;
+            }
+            CameraMode::Planar => {
+                let plane_origin = DVec3::new(0.0, controller.anchor_position.y, 0.0);
+                let plane_normal = DVec3::Y;
+
+                let Some(intersect_pos) = ray_plane_intersection(
+                    controller.camera_position,
+                    camera_cursor_direction,
+                    plane_origin,
+                    plane_normal,
+                ) else {
+                    controller.pan_data = None;
+                    return;
+                };
+
+                let delta = controller.anchor_position - intersect_pos;
+                new_cam_pos = controller.camera_position + delta;
+                new_cam_rot = controller.camera_rotation;
+            }
+        }
     }
 
     if let Some(rotation_data) = controller.rotation_data {
@@ -297,7 +360,11 @@ pub fn orbital_camera_controller(
         // The cursor world position stays at the same screen-space location.
         // The distance between anchor and camera remains constant.
 
-        let heading_axis = (controller.anchor_position - terrain_origin).normalize(); // terrain normal
+        let heading_axis = match controller.mode {
+            CameraMode::Spherical => (controller.anchor_position - terrain_origin).normalize(),
+            CameraMode::Planar => DVec3::Y,
+        };
+
         let tilt_axis = controller.camera_rotation * DVec3::X; // camera right direction
 
         let rotation_heading = DQuat::from_axis_angle(heading_axis, rotation_data.rotation.x);
@@ -310,41 +377,52 @@ pub fn orbital_camera_controller(
     }
 
     if let Some(zoom_data) = controller.zoom_data {
-        // Invariants:
-        // The terrain origin stays at the screen center.
-        // The cursor world position stays at the same screen-space location.
+        match controller.mode {
+            CameraMode::Spherical => {
+                // Invariants:
+                // The terrain origin stays at the screen center.
+                // The cursor world position stays at the same screen-space location.
 
-        let anchor_terrain = controller.anchor_position - terrain_origin;
-        let camera_terrain = terrain_origin - controller.camera_position;
-        let camera_anchor = controller.anchor_position - controller.camera_position;
+                let anchor_terrain = controller.anchor_position - terrain_origin;
+                let camera_terrain = terrain_origin - controller.camera_position;
+                let camera_anchor = controller.anchor_position - controller.camera_position;
 
-        // compute the side lengths and the angles of the triangle anchor - terrain origin - new camera
-        let a = anchor_terrain.length();
-        let b = 2.0_f64.powf(zoom_data.zoom);
+                // compute the side lengths and the angles of the triangle anchor - terrain origin - new camera
+                let a = anchor_terrain.length();
+                let b = 2.0_f64.powf(zoom_data.zoom);
 
-        let alpha = camera_terrain.angle_between(camera_anchor);
-        let beta = (b / a * alpha.sin()).asin();
-        let gamma = std::f64::consts::PI - alpha - beta;
+                let alpha = camera_terrain.angle_between(camera_anchor);
+                let beta = (b / a * alpha.sin()).asin();
+                let gamma = std::f64::consts::PI - alpha - beta;
 
-        let c = f64::sqrt(a * a + b * b - 2.0 * a * b * gamma.cos());
+                let c = f64::sqrt(a * a + b * b - 2.0 * a * b * gamma.cos());
 
-        if beta.is_nan() {
-            controller.zoom_data = None;
-            return;
+                if beta.is_nan() {
+                    controller.zoom_data = None;
+                    return;
+                }
+
+                // rotation from the anchor direction towards the initial camera direction
+                let rotation =
+                    DQuat::from_axis_angle(camera_terrain.cross(camera_anchor).normalize(), beta);
+
+                let camera_position = terrain_origin + rotation * (c * anchor_terrain.normalize());
+
+                let initial_direction = camera_terrain.normalize();
+                let new_direction = (terrain_origin - camera_position).normalize();
+
+                new_cam_pos = camera_position;
+                new_cam_rot =
+                    DQuat::from_rotation_arc(initial_direction, new_direction) * controller.camera_rotation;
+            }
+            CameraMode::Planar => {
+                let vector = controller.camera_position - controller.anchor_position;
+                let target_dist = 2.0_f64.powf(zoom_data.zoom);
+                let new_vector = vector.normalize() * target_dist;
+                new_cam_pos = controller.anchor_position + new_vector;
+                new_cam_rot = controller.camera_rotation;
+            }
         }
-
-        // rotation from the anchor direction towards the initial camera direction
-        let rotation =
-            DQuat::from_axis_angle(camera_terrain.cross(camera_anchor).normalize(), beta);
-
-        let camera_position = terrain_origin + rotation * (c * anchor_terrain.normalize());
-
-        let initial_direction = camera_terrain.normalize();
-        let new_direction = (terrain_origin - camera_position).normalize();
-
-        new_cam_pos = camera_position;
-        new_cam_rot =
-            DQuat::from_rotation_arc(initial_direction, new_direction) * controller.camera_rotation;
     }
 
     let (new_cell, new_translation) = grid.translation_to_grid(new_cam_pos);

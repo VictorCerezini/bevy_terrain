@@ -7,7 +7,7 @@ use bevy::{
     shader::ShaderRef,
 };
 use bevy_terrain::prelude::{
-    BigSpaceCommands, DebugCameraController, Grid, LoadingImages, OrbitalCameraController,
+    BigSpaceCommands, CameraMode, DebugCameraController, Grid, LoadingImages, OrbitalCameraController,
     SpawnTerrainCommandsExt, TerrainDebugPlugin, TerrainMaterialPlugin, TerrainPickingPlugin,
     TerrainPlugin, TerrainSettings, TerrainViewConfig,
 };
@@ -82,7 +82,7 @@ fn initialize(
                 Transform::from_translation(Vec3::new(0.0, VIEW_DISTANCE as f32, 0.0))
                     .looking_to(Vec3::NEG_Y, Vec3::NEG_Z),
                 DebugCameraController::new(VIEW_DISTANCE),
-                OrbitalCameraController::default(),
+                OrbitalCameraController::new(CameraMode::Planar),
             ))
             .id();
     });

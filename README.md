@@ -55,7 +55,7 @@ using only the mouse.
 
 ### Fly Camera
 
-- `T` - toggle fly camera movement
+- `Z` - toggle fly camera movement
 - Move the mouse to look around
 - Press the arrow keys to move the camera horizontally
 - Use `PageUp` and `PageDown` to move the camera vertically
@@ -63,15 +63,15 @@ using only the mouse.
 
 ### Orbital Camera
 
-- `R` - toggle orbital camera movement
+- `X` - toggle orbital camera movement
 - Hold the left mouse button to pan the camera
 - Hold the middle mouse button to rotate the camera
 - Hold the right mouse button to zoom the camera
 
 ### Visualization Toggles
 
-- `W` - toggle wireframe view
-- `L` - toggle terrain data LOD view
+- `F1` - toggle wireframe view
+- `F2` - toggle terrain data LOD view
 - `Y` - toggle terrain geometry LOD view
 - `Q` - toggle tile tree view
 - `P` - toggle pixel view
@@ -84,7 +84,7 @@ using only the mouse.
 - `G` - toggle texture sampling using gradients
 - `H` - toggle high precision coordinates
 - `F` - toggle freeze view frustum
-- `D` - toggle surface approximation debug
+- `F3` - toggle surface approximation debug
 
 ### Quality Adjustments
 
@@ -128,5 +128,3 @@ at your option.
 
 Unless explicitly stated otherwise, any contribution intentionally submitted for inclusion in the work, as
 defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
-
-[^1]: Currently, the support for planar terrain rendering is broken.

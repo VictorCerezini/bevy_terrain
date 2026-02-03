@@ -18,7 +18,7 @@ pub(crate) fn debug_surface_approximation(
     tile_trees: Res<TerrainViewComponents<TileTree>>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
-    if input.just_pressed(KeyCode::KeyD) {
+    if input.just_pressed(KeyCode::F3) {
         *enable = !*enable;
         info!(
             "Surface approximation: {:?}",

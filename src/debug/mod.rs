@@ -15,10 +15,13 @@ use bevy::{
 mod approximation_debug;
 mod camera;
 
-mod orbital_camera;
+mod free_camera;
 
-pub(crate) use self::{approximation_debug::*, camera::*, orbital_camera::*};
-pub use self::{camera::DebugCameraController, orbital_camera::OrbitalCameraController};
+pub(crate) use self::{approximation_debug::*, camera::*, free_camera::*};
+pub use self::{
+    camera::DebugCameraController,
+    free_camera::{CameraMode, OrbitalCameraController},
+};
 
 #[cfg(feature = "metal_capture")]
 mod metal_capture;
@@ -112,14 +115,14 @@ pub fn extract_debug(mut debug: ResMut<DebugTerrain>, extracted_debug: Extract<R
 }
 
 pub fn toggle_debug(input: Res<ButtonInput<KeyCode>>, mut debug_terrain: ResMut<DebugTerrain>) {
-    if input.just_pressed(KeyCode::KeyW) {
+    if input.just_pressed(KeyCode::F1) {
         debug_terrain.wireframe = !debug_terrain.wireframe;
         info!(
             "Toggled the wireframe view {}.",
             if debug_terrain.wireframe { "on" } else { "off" }
         )
     }
-    if input.just_pressed(KeyCode::KeyE) {
+    if input.just_pressed(KeyCode::F2) {
         debug_terrain.show_data_lod = !debug_terrain.show_data_lod;
         info!(
             "Toggled the terrain data LOD view {}.",
