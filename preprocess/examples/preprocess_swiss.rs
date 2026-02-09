@@ -10,7 +10,7 @@ fn main() {
         terrain_path: "../assets/terrains/swiss".into(),
         temp_path: None,
         overwrite: true,
-        no_data: PreprocessNoData::NoData(10000.0),
+        no_data: PreprocessNoData::Source,
         data_type: PreprocessDataType::DataType(GdalDataType::Float32),
         fill_radius: 32.0,
         create_mask: true,
@@ -20,7 +20,7 @@ fn main() {
         side_length: 400000.,
         height_scale: 0.,
         radius: None,
-        border_size: 4,
+        border_size: 2,
         mip_level_count: 2,
         format: AttachmentFormat::R32F,
     };

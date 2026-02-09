@@ -79,7 +79,7 @@ using only the mouse.
 - `B` - toggle normals view
 - `M` - toggle morphing
 - `K` - toggle blending
-- `Z` - toggle tile tree LOD
+- `T` - toggle tile tree LOD
 - `S` - toggle lighting
 - `G` - toggle texture sampling using gradients
 - `H` - toggle high precision coordinates
