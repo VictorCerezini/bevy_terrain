@@ -12,7 +12,7 @@ use bevy_terrain::prelude::{
     TerrainPlugin, TerrainSettings, TerrainViewConfig,
 };
 
-const VIEW_DISTANCE: f64 = 10000000.;
+const VIEW_DISTANCE: f64 = 100000.;
 
 #[cfg(feature = "wesl")]
 const FRAGMENT_SHADER_ASSET_PATH: &str = "shaders/planar.wesl";
@@ -92,7 +92,7 @@ fn initialize(
         TerrainViewConfig::default(),
         CustomMaterial {
             gradient: gradient1.clone(),
-            gradient_info: GradientInfo { mode: 1 },
+            gradient_info: GradientInfo { mode: 2 },
         },
         view,
     );

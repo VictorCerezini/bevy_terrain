@@ -12,7 +12,7 @@ use crate::{
 };
 use bevy::{
     asset::UntypedAssetId,
-    ecs::{entity::EntityHashMap},
+    ecs::entity::EntityHashMap,
     pbr::MeshExtractionSystems,
     prelude::ResMut,
     shader::{ShaderDefVal, ShaderRef},
@@ -76,7 +76,6 @@ fn extract_terrain_materials<M: Material>(
             material_instances,
         )
     };
-    tmis.instances.clear();
     let last_change_tick = tmis.current_change_tick;
 
     for (entity, _view_visibility, material) in &terrains {
