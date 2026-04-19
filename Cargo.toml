@@ -37,7 +37,7 @@ derive_more = { version = "2.1", features = ["from"] }
 slab = "0.4"
 strum = "0.27"
 strum_macros = "0.27"
-big_space = { git = "https://github.com/victor7543/big_space", branch = "bevy-0.18-port", features = ["i32"], optional = true }
+big_space = { version = "0.12", features = ["i32"], optional = true }
 rand = { version = "0.9", optional = true }
 ron = "0.12"
 metal = { version = "0.33", optional = true }
