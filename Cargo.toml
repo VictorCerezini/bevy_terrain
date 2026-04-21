@@ -30,18 +30,18 @@ anyhow = "1.0"
 serde = "1.0"
 async-channel = "2.5"
 bevy = "0.18"
-bevy_common_assets = { version = "0.15", features = ["ron"] }
+bevy_common_assets = { version = "0.16", features = ["ron"] }
 ndarray = "0.17"
 itertools = "0.14"
 derive_more = { version = "2.1", features = ["from"] }
 slab = "0.4"
-strum = "0.27"
-strum_macros = "0.27"
+strum = "0.28"
+strum_macros = "0.28"
 big_space = { version = "0.12", features = ["i32"], optional = true }
 rand = { version = "0.9", optional = true }
 ron = "0.12"
 metal = { version = "0.33", optional = true }
-wgpu-core = { version = "28.0", optional = true }
+wgpu-core = { version = "29.0", optional = true }
 
 [[example]]
 name = "spherical"
