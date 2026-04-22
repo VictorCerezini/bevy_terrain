@@ -1,10 +1,10 @@
+use crate::gdal::raster::{Buffer, GdalDataType, GdalType, RasterBand};
 use crate::{
     dataset::{PreprocessContext, update_tile_dataset},
     gdal_extension::{CountingProgressCallback, ProgressCallback, fill_no_data},
     result::{PreprocessError, PreprocessResult},
 };
 use bevy_terrain::math::TileCoordinate;
-use gdal::raster::{Buffer, GdalDataType, GdalType, RasterBand};
 use itertools::{Itertools, izip};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
@@ -66,7 +66,7 @@ fn create_mask_and_fill_no_data_gen<T: GdalType + BitMask>(
             .rasterbands()
             .map(|band_result| band_result.map_err(PreprocessError::Gdal))
             .try_collect()?;
-        
+
         // Process each band and mask together
         for (mask, mut band) in izip!(masks, bands) {
             let mut band_data: Buffer<f32> = band.read_band_as()?;

@@ -1,4 +1,4 @@
-use gdal::errors::GdalError;
+use crate::gdal::errors::GdalError;
 use std::num::ParseFloatError;
 use thiserror::Error;
 
@@ -12,6 +12,8 @@ pub enum PreprocessError {
     NoDataOutOfRange,
     #[error("GDAL error")]
     Gdal(#[from] GdalError),
+    #[error("Raster error: {0}")]
+    Raster(String),
     #[error("Parse error")]
     Parse(#[from] ParseFloatError),
 }

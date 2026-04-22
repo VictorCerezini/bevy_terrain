@@ -1,4 +1,7 @@
-use bevy_terrain_preprocess::{PreprocessData, prelude::{Cli, PreprocessContext, preprocess}};
+use bevy_terrain_preprocess::{
+    PreprocessData,
+    prelude::{Cli, PreprocessContext, preprocess},
+};
 use clap::Parser;
 use std::env::set_var;
 
@@ -16,12 +19,12 @@ fn main() {
     let args = Cli::parse();
 
     let mut data_list: Vec<PreprocessData> = [args]
-    .into_iter()
-    .map(|args| {
-        let (dataset, context) = PreprocessContext::from_cli(args).unwrap();
-        PreprocessData { dataset, context }
-    })
-    .collect();
+        .into_iter()
+        .map(|args| {
+            let (dataset, context) = PreprocessContext::from_cli(args).unwrap();
+            PreprocessData { dataset, context }
+        })
+        .collect();
 
     preprocess(&mut data_list);
 }

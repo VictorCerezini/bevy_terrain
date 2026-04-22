@@ -1,11 +1,11 @@
+use crate::gdal::Dataset;
+use crate::gdal::raster::{Buffer, GdalType};
 use crate::{
     dataset::{PreprocessContext, load_tile_dataset_if_exists, update_tile_dataset},
     gdal_extension::CountingProgressCallback,
     result::{PreprocessError, PreprocessResult},
 };
 use bevy_terrain::math::{FaceRotation, TileCoordinate};
-use gdal::Dataset;
-use gdal::raster::{Buffer, GdalType};
 use itertools::izip;
 use ndarray::Axis;
 use num::NumCast;
@@ -14,7 +14,6 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 fn clamp_coord(v: isize, max: isize) -> isize {
     v.max(0).min(max - 1)
 }
-
 
 fn stitch_corners<T: Copy + GdalType + NumCast>(
     tile_dataset: &Dataset,
@@ -58,24 +57,14 @@ fn stitch_corners<T: Copy + GdalType + NumCast>(
     let raster_width = raster_width as isize;
     let raster_height = raster_height as isize;
 
-
     for raster in tile_dataset.rasterbands() {
         let mut raster = raster?;
 
         let corner_values = corner_offsets[corner].map(|offset| {
             let sx = clamp_coord(src_offset.0 + offset.0, raster_width);
             let sy = clamp_coord(src_offset.1 + offset.1, raster_height);
-            
-            Ok::<T, PreprocessError>(
-                raster
-                    .read_as::<T>(
-                        (sx, sy),
-                        (1, 1),
-                        (1, 1),
-                        None,
-                    )?
-                    .data()[0],
-            )
+
+            Ok::<T, PreprocessError>(raster.read_as::<T>((sx, sy), (1, 1), (1, 1), None)?.data()[0])
         });
 
         // Todo: check for nodata

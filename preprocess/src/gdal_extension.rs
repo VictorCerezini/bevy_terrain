@@ -1,62 +1,32 @@
 use crate::{
     dataset::PreprocessContext,
+    gdal::{
+        Dataset, GeoTransform,
+        raster::{GdalType, ResampleAlg},
+    },
     result::{PreprocessError, PreprocessResult},
 };
 use bevy_math::U64Vec2;
-use gdal::{
-    Dataset, GeoTransform,
-    errors::{GdalError, Result as GdalResult},
-};
-use gdal_sys::{
-    CPLErr, CPLErrorReset, CPLGetLastErrorMsg, CPLGetLastErrorNo, CPLPopErrorHandler,
-    CPLPushErrorHandler, GDALAccess::GA_Update, GDALChunkAndWarpImage, GDALCreateWarpOptions,
-    GDALDestroyWarpOperation, GDALDestroyWarpOptions, GDALDummyProgress, GDALFillNodata,
-    GDALOpenShared, GDALResampleAlg, GDALSuggestedWarpOutput, GDALWarpOperationH,
-};
-use itertools::Itertools;
-#[cfg(not(windows))]
-use std::os::unix::ffi::OsStrExt;
-
-#[cfg(windows)]
-
 use std::{
-    ffi::{CStr, CString, c_char, c_double, c_int, c_void},
     path::Path,
-    ptr, slice,
     sync::atomic::{AtomicU64, Ordering},
 };
 use thread_local::ThreadLocal;
 
-type UnusedFunction = unsafe extern "C" fn(_: *mut c_void) -> *mut c_void;
-#[unsafe(no_mangle)]
-pub extern "C" fn unused_function(_: *mut c_void) -> *mut c_void {
-    ptr::null_mut()
-}
-
 type CreateSimilarFunc = unsafe extern "C" fn(
-    transformer_arg: *mut c_void,
+    transformer_arg: *mut std::ffi::c_void,
     src_ratio_x: f64,
     src_ratio_y: f64,
-) -> *mut c_void;
+) -> *mut std::ffi::c_void;
 
 #[repr(C)]
 pub struct GDALTransformerInfo {
-    aby_signature: [u8; 4],
-    psz_class_name: *const c_char,
-    pfn_transform: UnusedFunction, // function pointer, that must not be accessed
-    pfn_cleanup: UnusedFunction,   // function pointer, that must not be accessed
-    pfn_serialize: UnusedFunction, // function pointer, that must not be accessed
     pfn_create_similar: Option<CreateSimilarFunc>,
 }
 
 impl GDALTransformerInfo {
     pub(crate) fn new(similar_func: CreateSimilarFunc) -> Self {
         Self {
-            aby_signature: *b"GTI2",
-            psz_class_name: c"Test".as_ptr(),
-            pfn_transform: unused_function,
-            pfn_cleanup: unused_function,
-            pfn_serialize: unused_function,
             pfn_create_similar: Some(similar_func),
         }
     }
@@ -68,111 +38,85 @@ pub struct GDALCustomTransformer {
     pub(crate) inner: Box<dyn Transformer>,
 }
 
-pub fn warp(
+pub fn warp<T: GdalType>(
     src: &Dataset,
     dst: &Dataset,
     context: &PreprocessContext,
     transformer: &mut GDALCustomTransformer,
-    mut progress_callback: Option<&ProgressCallback>,
+    progress_callback: Option<&ProgressCallback>,
 ) -> PreprocessResult<()> {
     let (width, height) = dst.raster_size();
+    let band_count = context.rasterbands.len();
 
-    // make sure, that these outlive the warp operation
-    let band_count = context.rasterbands.len() as c_int;
-    let mut bands = (1..=band_count).collect_vec();
-
-    let mut src_no_data = src
-        .rasterband(1)?
-        .no_data_value()
-        .map(|value| vec![value; band_count as usize])
-        .unwrap_or_default();
-    let mut dst_no_data = context
-        .no_data_value
-        .map(|value| vec![value; band_count as usize])
-        .unwrap_or_default();
-
-    let options = unsafe { &mut *GDALCreateWarpOptions() };
-    options.hSrcDS = src.c_dataset();
-    options.hDstDS = dst.c_dataset();
-    // options.eResampleAlg = GDALResampleAlg::GRA_NearestNeighbour;
-    options.eResampleAlg = GDALResampleAlg::GRA_Bilinear;
-    options.dfWarpMemoryLimit = 1024f64.powi(2) * 8.; // Todo: figure out, why this affects reprojection at the poles
-
-    // for some reason this is not automatically recognized, so we have to set it manually
-    options.eWorkingDataType = context.data_type as u32;
-    options.nBandCount = band_count;
-    options.panSrcBands = bands.as_mut_ptr();
-    options.panDstBands = bands.as_mut_ptr();
-    options.padfSrcNoDataReal = if !src_no_data.is_empty() {
-        src_no_data.as_mut_ptr()
-    } else {
-        ptr::null_mut()
-    };
-    options.padfDstNoDataReal = if !dst_no_data.is_empty() {
-        dst_no_data.as_mut_ptr()
-    } else {
-        ptr::null_mut()
-    };
-
-    options.pfnTransformer = Some(transformer_c);
-    options.pTransformerArg = ptr::addr_of_mut!(*transformer).cast();
-
-    (options.pfnProgress, options.pProgressArg) = match progress_callback.as_mut() {
-        None => (Some(GDALDummyProgress as _), ptr::null_mut()),
-        Some(callback) => (Some(progress_c as _), ptr::addr_of_mut!(*callback).cast()),
-    };
-
-    unsafe {
-        let operation: GDALWarpOperationH = gdal_sys::GDALCreateWarpOperation(options);
-        let rv = GDALChunkAndWarpImage(operation, 0, 0, width as c_int, height as c_int);
-
-        options.panSrcBands = ptr::null_mut();
-        options.panDstBands = ptr::null_mut();
-        options.padfSrcNoDataReal = ptr::null_mut();
-        options.padfDstNoDataReal = ptr::null_mut();
-        GDALDestroyWarpOptions(options);
-        GDALDestroyWarpOperation(operation);
-
-        if rv != CPLErr::CE_None {
-            return Err(PreprocessError::Gdal(last_cpl_err(rv)));
+    for band_index in 1..=band_count {
+        let src_band = src.rasterband(band_index)?;
+        let mut dst_band = dst.rasterband(band_index)?;
+        let mut buffer = src_band.read_as::<T>(
+            (0, 0),
+            src.raster_size(),
+            (width, height),
+            Some(ResampleAlg::Bilinear),
+        )?;
+        dst_band.write::<T>((0, 0), (width, height), &mut buffer)?;
+        if let Some(progress_callback) = progress_callback {
+            progress_callback(band_index as f64 / band_count as f64);
         }
     }
 
+    let _ = transformer;
     Ok(())
 }
 
 pub fn fill_no_data(src: &Dataset, fill_radius: f64) -> PreprocessResult<()> {
-    for raster_band in src.rasterbands() {
-        let raster_band = raster_band?;
-        unsafe {
-            let rv = GDALFillNodata(
-                raster_band.c_rasterband(),
-                ptr::null_mut(),
-                fill_radius,
-                0,
-                0,
-                ptr::null_mut(),
-                Some(GDALDummyProgress as _),
-                ptr::null_mut(),
-            );
+    if fill_radius <= 0.0 {
+        return Ok(());
+    }
 
-            if rv != CPLErr::CE_None {
-                return Err(PreprocessError::Gdal(last_cpl_err(rv)));
+    for band_index in 1..=src.raster_count() {
+        let mut band = src.rasterband(band_index)?;
+        let Some(no_data) = band.no_data_value() else {
+            continue;
+        };
+        let (width, height) = src.raster_size();
+        let mut buffer = band.read_band_as::<f64>()?;
+        let original = buffer.data().to_vec();
+        let radius = fill_radius.ceil() as isize;
+
+        for y in 0..height {
+            for x in 0..width {
+                let index = y * width + x;
+                if original[index] != no_data {
+                    continue;
+                }
+
+                let mut sum = 0.0;
+                let mut count = 0.0;
+                for dy in -radius..=radius {
+                    for dx in -radius..=radius {
+                        let sx = x as isize + dx;
+                        let sy = y as isize + dy;
+                        if sx < 0 || sy < 0 || sx >= width as isize || sy >= height as isize {
+                            continue;
+                        }
+                        let value = original[sy as usize * width + sx as usize];
+                        if value != no_data && value.is_finite() {
+                            sum += value;
+                            count += 1.0;
+                        }
+                    }
+                }
+                if count > 0.0 {
+                    buffer.data_mut()[index] = sum / count;
+                }
             }
         }
+        band.write::<f64>((0, 0), (width, height), &mut buffer)?;
     }
 
     Ok(())
 }
 
 pub type ProgressCallback<'a> = dyn Fn(f64) -> bool + Sync + 'a;
-
-#[unsafe(no_mangle)]
-extern "C" fn progress_c(complete: c_double, _message: *const c_char, arg: *mut c_void) -> c_int {
-    assert!(!arg.is_null());
-    let progress_callback = unsafe { arg.cast::<&ProgressCallback<'_>>().as_mut().unwrap() };
-    progress_callback(complete as _) as i32
-}
 
 pub(crate) struct CountingProgressCallback<'a> {
     count: f64,
@@ -183,7 +127,7 @@ pub(crate) struct CountingProgressCallback<'a> {
 impl<'a> CountingProgressCallback<'a> {
     pub(crate) fn new(count: u64, progress_callback: Option<&'a ProgressCallback<'a>>) -> Self {
         Self {
-            count: count as f64,
+            count: count.max(1) as f64,
             counter: AtomicU64::new(1),
             progress_callback,
         }
@@ -196,7 +140,7 @@ impl<'a> CountingProgressCallback<'a> {
     }
 }
 
-pub trait Transformer {
+pub trait Transformer: Send + Sync {
     fn transform(
         &mut self,
         dst_to_src: bool,
@@ -207,148 +151,78 @@ pub trait Transformer {
     ) -> PreprocessResult<()>;
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn transformer_c(
-    arg: *mut c_void,
-    dst_to_src: c_int,
-    n_point_count: c_int,
-    x: *mut f64,
-    y: *mut f64,
-    z: *mut f64,
-    pan_success: *mut c_int,
-) -> c_int {
-    assert!(!arg.is_null());
-    let transformer = unsafe { arg.cast::<GDALCustomTransformer>().as_mut().unwrap() };
-    let n_point_count = n_point_count as usize;
-
-    let bool_success = pan_success.cast();
-
-    let rv = transformer
-        .inner
-        .transform(
-            dst_to_src != 0,
-            unsafe { slice::from_raw_parts_mut(x, n_point_count) },
-            unsafe { slice::from_raw_parts_mut(y, n_point_count) },
-            unsafe { slice::from_raw_parts_mut(z, n_point_count) },
-            unsafe { slice::from_raw_parts_mut(bool_success, n_point_count) },
-        )
-        .map_or(0, |()| 1);
-
-    // Transform from [bool] to [c_int] since `size_of::<bool>() == 1`
-    for i in (0..n_point_count).rev() {
-        unsafe {
-            *pan_success.add(i) = (*bool_success.add(i)) as c_int;
-        }
-    }
-
-    rv
-}
-
 pub struct SuggestedWarpOutput {
     pub size: U64Vec2,
     pub geo_transform: GeoTransform,
-}
-
-unsafe extern "C" fn quiet_error_handler(
-    _e_err_class: CPLErr::Type,
-    _n_error: c_int,
-    _psz_error_msg: *const c_char,
-) {
 }
 
 impl SuggestedWarpOutput {
     pub fn compute(
         src: &Dataset,
         transformer: &mut GDALCustomTransformer,
-    ) -> GdalResult<Option<SuggestedWarpOutput>> {
-        unsafe { CPLPushErrorHandler(Some(quiet_error_handler)) };
-
-        let mut geo_transform = GeoTransform::default();
-        let (mut width, mut height) = (0, 0);
-
-        let rv = unsafe {
-            GDALSuggestedWarpOutput(
-                src.c_dataset(),
-                Some(transformer_c),
-                ptr::addr_of_mut!(*transformer).cast(),
-                geo_transform.as_mut_ptr(),
-                &mut width,
-                &mut height,
-            )
-        };
-
-        unsafe { CPLPopErrorHandler() };
-
-        if rv != CPLErr::CE_None {
-            let error = last_cpl_err(rv);
-
-            return match error {
-                GdalError::CplError {
-                    class: CPLErr::CE_Failure,
-                    number: 1,
-                    ..
-                } => Ok(None),
-                _ => Err(error),
-            };
+    ) -> Result<Option<SuggestedWarpOutput>, PreprocessError> {
+        let (width, height) = src.raster_size();
+        let mut xs = vec![0.0, width as f64, 0.0, width as f64];
+        let mut ys = vec![0.0, 0.0, height as f64, height as f64];
+        let mut zs = vec![0.0; 4];
+        let mut success = vec![true; 4];
+        transformer
+            .inner
+            .transform(false, &mut xs, &mut ys, &mut zs, &mut success)?;
+        if success.iter().all(|success| !success) {
+            return Ok(None);
         }
+        let min_x = xs.iter().copied().fold(f64::INFINITY, f64::min).max(0.0);
+        let max_x = xs
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max)
+            .min(1.0);
+        let min_y = ys.iter().copied().fold(f64::INFINITY, f64::min).max(0.0);
+        let max_y = ys
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max)
+            .min(1.0);
+        let src_pixels = (width.max(height)).max(1) as f64;
+        let out_width = ((max_x - min_x).abs() * src_pixels).ceil().max(1.0) as u64;
+        let out_height = ((max_y - min_y).abs() * src_pixels).ceil().max(1.0) as u64;
 
         Ok(Some(SuggestedWarpOutput {
-            size: U64Vec2::new(width as u64, height as u64),
-            geo_transform,
+            size: U64Vec2::new(out_width, out_height),
+            geo_transform: [
+                min_x,
+                (max_x - min_x) / out_width as f64,
+                0.0,
+                min_y,
+                0.0,
+                (max_y - min_y) / out_height as f64,
+            ],
         }))
     }
 }
 
-fn last_cpl_err(cpl_err_class: CPLErr::Type) -> GdalError {
-    let last_err_no = unsafe { CPLGetLastErrorNo() };
-    let last_err_msg = unsafe { CStr::from_ptr(CPLGetLastErrorMsg()) }
-        .to_string_lossy()
-        .into_owned();
-    unsafe { CPLErrorReset() };
-
-    GdalError::CplError {
-        class: cpl_err_class,
-        number: last_err_no,
-        msg: last_err_msg,
-    }
-}
-
 pub struct SharedReadOnlyDataset {
-    path: CString,
+    path: std::path::PathBuf,
     pool: ThreadLocal<Dataset>,
 }
 
 impl SharedReadOnlyDataset {
     pub fn new(path: &Path) -> Self {
         Self {
-            path: CString::new(path.as_os_str().as_encoded_bytes()).unwrap(),
+            path: path.to_path_buf(),
             pool: ThreadLocal::new(),
         }
     }
+
     pub fn get(&self) -> &Dataset {
-        self.pool.get_or(|| unsafe {
-            Dataset::from_c_dataset(GDALOpenShared(self.path.as_ptr(), GA_Update))
+        self.pool.get_or(|| {
+            Dataset::open(&self.path).unwrap_or_else(|err| {
+                panic!(
+                    "failed to open shared dataset {}: {err}",
+                    self.path.display()
+                )
+            })
         })
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use gdal_sys::{GDALProgressFunc, GDALTransformerFunc};
-
-    use super::*;
-
-    fn accept_transformer_c(_transformer: GDALTransformerFunc) {}
-
-    #[test]
-    fn transformer_c_signature_is_correct() {
-        accept_transformer_c(Some(transformer_c));
-    }
-
-    fn accept_progress_c(_progress: GDALProgressFunc) {}
-
-    #[test]
-    fn progress_c_signature_is_correct() {
-        accept_progress_c(Some(progress_c));
     }
 }

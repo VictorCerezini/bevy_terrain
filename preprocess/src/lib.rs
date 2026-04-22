@@ -2,6 +2,7 @@ mod cli;
 mod dataset;
 mod downsample;
 mod fill_no_data;
+pub mod gdal;
 mod gdal_extension;
 mod reproject;
 mod result;
@@ -9,6 +10,10 @@ mod split;
 mod stitch;
 mod transformers;
 
+use crate::gdal::{
+    Dataset, DriverManager,
+    raster::{GdalDataType, GdalType, ResampleAlg},
+};
 use crate::{
     cli::PreprocessBar,
     dataset::{PreprocessContext, clear_directory, delete_directory},
@@ -18,10 +23,6 @@ use crate::{
     split::split_and_stitch,
 };
 use bevy_terrain::prelude::{AttachmentLabel, TerrainConfig, TerrainShape, TileCoordinate};
-use gdal::{
-    Dataset, DriverManager,
-    raster::{GdalDataType, GdalType, ResampleAlg},
-};
 use num::NumCast;
 use std::time::Instant;
 
@@ -102,7 +103,7 @@ pub fn preprocess(preprocess_data_list: &mut Vec<PreprocessData>) {
         // RESIZE OTHER MAPS TO MATCH HEIGHT MAP
         // This prevents spatial misalignment caused by different LOD domain calculations
         let (width, height) = src_dataset.raster_size();
-        let mut resized: Dataset;
+        let resized: Dataset;
         src_dataset = if target_width != 0
             && target_height != 0
             && (width != target_width || height != target_height)
@@ -129,7 +130,7 @@ pub fn preprocess(preprocess_data_list: &mut Vec<PreprocessData>) {
                 resized.set_geo_transform(&geo).unwrap();
             }
             // Copy Projection
-            let proj = src_dataset.projection(); 
+            let proj = src_dataset.projection();
             resized.set_projection(&proj).unwrap();
 
             for i in 1..=src_dataset.raster_count() {

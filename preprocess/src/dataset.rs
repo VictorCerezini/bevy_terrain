@@ -1,3 +1,8 @@
+use crate::gdal::{
+    Dataset, DatasetOptions, DriverManager, GdalOpenFlags, GeoTransform,
+    programs::raster::build_vrt,
+    raster::{ColorInterpretation, GdalDataType, GdalType, RasterCreationOptions},
+};
 use crate::{
     cli::Cli,
     result::{PreprocessError, PreprocessResult},
@@ -8,14 +13,11 @@ use bevy_terrain::{
     prelude::TerrainShape,
     terrain_data::{AttachmentConfig, AttachmentFormat, AttachmentLabel},
 };
-use gdal::{
-    Dataset, DatasetOptions, DriverManager, GdalOpenFlags, GeoTransform,
-    programs::raster::build_vrt,
-    raster::{ColorInterpretation, GdalDataType, GdalType, RasterCreationOptions},
-};
 use itertools::Itertools;
 use std::{
-    f64, fs, iter, path::{Path, PathBuf}, str::FromStr
+    f64, fs, iter,
+    path::{Path, PathBuf},
+    str::FromStr,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -276,7 +278,12 @@ pub(crate) fn load_tile_dataset_if_exists(
     let tile_path = tile_coordinate.path(&context.tile_dir);
 
     let dataset = if tile_path.is_file() {
-        Some(Dataset::open(tile_path)?)
+        Some(Dataset::open(&tile_path).map_err(|err| {
+            PreprocessError::Raster(format!(
+                "failed to open tile {}: {err}",
+                tile_path.display()
+            ))
+        })?)
     } else {
         None
     };
@@ -337,7 +344,7 @@ pub(crate) fn create_empty_dataset<T: Copy + GdalType>(
         },
     ]);
 
-    let mut dst = driver.create_with_band_type_with_options::<T, _>(
+    let dst = driver.create_with_band_type_with_options::<T, _>(
         dst_path,
         size.x as _,
         size.y as _,
@@ -362,8 +369,7 @@ pub(crate) fn create_empty_dataset<T: Copy + GdalType>(
 
 pub fn delete_directory(directory: &Path) {
     if directory.exists() {
-        fs::remove_dir_all(directory)
-            .expect("Failed to delete directory");
+        fs::remove_dir_all(directory).expect("Failed to delete directory");
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::gdal::{Dataset, GeoTransform, GeoTransformEx, raster::GdalType};
 use crate::{
     dataset::{FaceInfo, PreprocessContext, create_empty_dataset},
     gdal_extension::{GDALCustomTransformer, ProgressCallback, SuggestedWarpOutput, warp},
@@ -6,7 +7,6 @@ use crate::{
 };
 use bevy_math::{DVec2, IVec2, U64Vec2};
 use bevy_terrain::prelude::AttachmentLabel;
-use gdal::{Dataset, GeoTransform, GeoTransformEx, raster::GdalType};
 use itertools::Itertools;
 use std::collections::HashMap;
 
@@ -48,7 +48,7 @@ where
                 context,
             )?;
 
-            warp(
+            warp::<T>(
                 &src_dataset,
                 &dst_dataset,
                 context,
@@ -66,6 +66,8 @@ where
                 context.min_height = context.min_height.min(min_max.min as f32);
                 context.max_height = context.max_height.max(min_max.max as f32);
             }
+
+            dst_dataset.flush()?;
 
             Ok((
                 transform.face,
@@ -90,24 +92,19 @@ pub fn compute_transforms<'a>(
     let mut transforms = Vec::with_capacity(6);
 
     let mut total_area = 0.0;
+    let (src_width, src_height) = src_dataset.raster_size();
+    let face_size = (((src_width as f64 * src_height as f64) / 6.0)
+        .sqrt()
+        .ceil()
+        .max(1.0)) as u64;
 
     for face in 0..6 {
-        let mut transformer = CustomTransformer::create(src_dataset, face, None)?;
+        let size = U64Vec2::splat(face_size);
+        let geo_transform =
+            GeoTransform::from([0.0, 1.0 / size.x as f64, 0.0, 0.0, 0.0, 1.0 / size.y as f64]);
 
-        let Some(SuggestedWarpOutput {
-            size,
-            mut geo_transform,
-        }) = SuggestedWarpOutput::compute(src_dataset, &mut transformer)?
-        else {
-            continue;
-        };
-
-        // flip y axis
-        geo_transform[3] += geo_transform[5] * size.y as f64;
-        geo_transform[5] = -geo_transform[5];
-
-        let uv_start = DVec2::from(geo_transform.apply(0.0, 0.0)).max(DVec2::ZERO);
-        let uv_end = DVec2::from(geo_transform.apply(size.x as f64, size.y as f64)).min(DVec2::ONE);
+        let uv_start = DVec2::ZERO;
+        let uv_end = DVec2::ONE;
 
         total_area += (uv_end - uv_start).element_product();
 
@@ -119,7 +116,7 @@ pub fn compute_transforms<'a>(
             lod: 0,
             pixel_start: IVec2::ZERO,
             pixel_end: IVec2::ZERO,
-            transformer,
+            transformer: CustomTransformer::create(src_dataset, face, None)?,
             geo_transform,
             progress_callback: None,
         });
@@ -217,7 +214,7 @@ pub fn reproject_planar<T>(
     src_dataset: &Dataset,
     context: &mut PreprocessContext,
     progress_callback: Option<&ProgressCallback>,
-) -> PreprocessResult<HashMap<u32, FaceInfo>> 
+) -> PreprocessResult<HashMap<u32, FaceInfo>>
 where
     T: Copy + GdalType,
 {
@@ -226,57 +223,57 @@ where
     }
 
     let face = 0;
-    
+
     let width = src_dataset.raster_size().0 as u64;
     let height = src_dataset.raster_size().1 as u64;
-    
+
     let max_dimension = width.max(height) as f64;
     let tile_size = context.attachment.center_size() as f64;
     let max_lod = (max_dimension / tile_size).log2().ceil() as u32;
     context.lod_count = Some(max_lod + 1);
-    
+
     let dst_path = context.temp_dir.join(format!("face{}.tif", face));
-    
+
     let dst_dataset = create_empty_dataset::<T>(
         &dst_path,
         U64Vec2::new(width, height),
         src_dataset.geo_transform().ok(),
         context,
     )?;
-    
+
     let band_count = src_dataset.raster_count();
     let total_rows = height as usize * band_count as usize;
     let mut rows_processed = 0;
-    
+
     for i in 1..=band_count {
         let src_band = src_dataset.rasterband(i).unwrap();
         let mut dst_band = dst_dataset.rasterband(i).unwrap();
-        
-        let chunk_size = 128.min(height as usize); 
-        
+
+        let chunk_size = 128.min(height as usize);
+
         for chunk_start in (0..height as usize).step_by(chunk_size) {
             let chunk_height = chunk_size.min(height as usize - chunk_start);
-            
+
             let mut buffer = src_band.read_as::<T>(
                 (0, chunk_start as isize),
                 (width as usize, chunk_height),
                 (width as usize, chunk_height),
                 None,
             )?;
-            
+
             dst_band.write::<T>(
                 (0, chunk_start as isize),
                 (width as usize, chunk_height),
                 &mut buffer,
             )?;
-            
+
             rows_processed += chunk_height;
             if let Some(progress_callback) = progress_callback {
                 progress_callback(rows_processed as f64 / total_rows as f64);
             }
         }
     }
-    
+
     if matches!(context.attachment_label, AttachmentLabel::Height) {
         let min_max = dst_dataset
             .rasterband(1)
@@ -287,16 +284,16 @@ where
         context.min_height = context.min_height.min(min_max.min as f32);
         context.max_height = context.max_height.max(min_max.max as f32);
     }
-    
+
     let face_info = FaceInfo {
         lod: max_lod,
         pixel_start: IVec2::ZERO,
         pixel_end: IVec2::new(width as i32, height as i32),
         path: dst_path,
     };
-    
+
     let mut faces = HashMap::new();
     faces.insert(face, face_info);
-    
+
     Ok(faces)
 }

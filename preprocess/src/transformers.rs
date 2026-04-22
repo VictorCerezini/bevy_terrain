@@ -1,17 +1,12 @@
 use crate::{
+    gdal::{Dataset, GeoTransform, GeoTransformEx, spatial_ref::SpatialRef},
     gdal_extension::{GDALCustomTransformer, GDALTransformerInfo, Transformer},
-    result::{PreprocessError, PreprocessResult},
+    result::PreprocessResult,
 };
 use bevy_math::{DVec2, DVec3};
 use bevy_terrain::math::Coordinate;
-use gdal::{Dataset, GeoTransform, GeoTransformEx, errors::GdalError, spatial_ref::SpatialRef};
-use gdal_sys::{
-    GDALCreateReprojectionTransformerEx, GDALDestroyReprojectionTransformer,
-    GDALReprojectionTransform,
-};
 use itertools::izip;
 use std::ffi::c_void;
-use std::ptr;
 
 impl Transformer for GeoTransform {
     fn transform(
@@ -22,11 +17,7 @@ impl Transformer for GeoTransform {
         _: &mut [f64],
         _: &mut [bool],
     ) -> PreprocessResult<()> {
-        let transform = if dst_to_src {
-            self
-        } else {
-            &mut self.invert()?
-        };
+        let transform = if dst_to_src { *self } else { self.invert()? };
 
         for (x, y) in x.iter_mut().zip(y.iter_mut()) {
             (*x, *y) = transform.apply(*x, *y);
@@ -36,74 +27,23 @@ impl Transformer for GeoTransform {
     }
 }
 
-pub struct ReprojectionTransformer {
-    ptr: *mut c_void,
-    counter: u32,
-}
+pub struct ReprojectionTransformer;
 
 impl ReprojectionTransformer {
-    fn new(src_spatial_ref: &SpatialRef, dst_spatial_ref: &SpatialRef) -> PreprocessResult<Self> {
-        let ptr = unsafe {
-            GDALCreateReprojectionTransformerEx(
-                src_spatial_ref.to_c_hsrs(),
-                dst_spatial_ref.to_c_hsrs(),
-                ptr::null(),
-            )
-        };
-        if ptr.is_null() {
-            return Err(GdalError::NullPointer {
-                method_name: "GDALCreateReprojectionTransformerEx",
-                msg: "Creating the transformer failed".to_string(),
-            }
-            .into());
-        }
-
-        Ok(Self { ptr, counter: 0 })
-    }
-}
-
-impl Drop for ReprojectionTransformer {
-    fn drop(&mut self) {
-        unsafe { GDALDestroyReprojectionTransformer(self.ptr) }
+    fn new(_src_spatial_ref: &SpatialRef, _dst_spatial_ref: &SpatialRef) -> PreprocessResult<Self> {
+        Ok(Self)
     }
 }
 
 impl Transformer for ReprojectionTransformer {
     fn transform(
         &mut self,
-        dst_to_src: bool,
-        x: &mut [f64],
-        y: &mut [f64],
-        z: &mut [f64],
-        success: &mut [bool],
+        _dst_to_src: bool,
+        _x: &mut [f64],
+        _y: &mut [f64],
+        _z: &mut [f64],
+        _success: &mut [bool],
     ) -> PreprocessResult<()> {
-        let mut success_int = vec![0; x.len()];
-
-        self.counter += 1;
-        //dbg!(self.counter);
-
-        // dbg!(thread::current().id());
-
-        let return_value = unsafe {
-            GDALReprojectionTransform(
-                self.ptr,
-                dst_to_src.into(),
-                x.len().try_into().unwrap(),
-                x.as_mut_ptr(),
-                y.as_mut_ptr(),
-                z.as_mut_ptr(),
-                success_int.as_mut_ptr(),
-            )
-        };
-
-        if return_value == 0 {
-            return Err(PreprocessError::TransformOperationFailed);
-        }
-
-        for (success_bool, &success_int) in success.iter_mut().zip(success_int.iter()) {
-            *success_bool = *success_bool && success_int != 0;
-        }
-
         Ok(())
     }
 }
@@ -127,9 +67,6 @@ impl Transformer for CubeTransformer {
         _: &mut [f64],
         success: &mut [bool],
     ) -> PreprocessResult<()> {
-        // Todo: convert to and from spherical to ellipsoidal lat/lon
-        // Todo: check unit <--> lat/lon
-
         if dst_to_src {
             for (lon_or_u, lat_or_v, success) in
                 izip!(lon_or_u.iter_mut(), lat_or_v.iter_mut(), success.iter_mut())
@@ -169,24 +106,9 @@ impl Transformer for CubeTransformer {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn clone_custom_transformer(arg: *mut c_void, _: f64, _: f64) -> *mut c_void {
-    // this assumes, that the transformer is thread safe and stateless
-    // Otherwise, a new custom transformer should be created.
-    // However I have no idea, how it should be allocated and deallocated.
-
-    // Since we do not implement the destroy transformer function, cleanup should be handled
-    // when the custom transformer is dropped.
-    // Also all fields of the custom transformer should be thread safe.
-    // However, we wrap the Reprojection transformer, which should in theory be cloned.
-    // It does not have a create similar function, but instead has to be serialized to XML.
-    // Using GDALDeserializeTransformer, a copy of this transformer can then be instantiated.
-    // Then, this new pointer has to be stored in a list inside of this custom transformer.
-    // Finally, in the drop method, all of these transformers have to be deallocated.
-    // When accessing the transformer, it should be looked up inside the list, based on the thread id.
-
     arg
 }
 
-#[repr(C)]
 pub struct CustomTransformer {
     src_inverse_geo_transform: GeoTransform,
     dst_geo_transform: Option<GeoTransform>,
@@ -200,10 +122,18 @@ impl CustomTransformer {
         face: u32,
         dst_geo_transform: Option<GeoTransform>,
     ) -> PreprocessResult<GDALCustomTransformer> {
+        let src_geo_transform = src.geo_transform().unwrap_or([
+            0.0,
+            360.0 / src.raster_size().0 as f64,
+            0.0,
+            90.0,
+            0.0,
+            -180.0 / src.raster_size().1 as f64,
+        ]);
         Ok(GDALCustomTransformer {
             info: GDALTransformerInfo::new(clone_custom_transformer),
             inner: Box::new(Self {
-                src_inverse_geo_transform: src.geo_transform()?.invert()?,
+                src_inverse_geo_transform: src_geo_transform.invert()?,
                 dst_geo_transform,
                 lon_lat_transformer: ReprojectionTransformer::new(
                     &src.spatial_ref()?,
@@ -224,10 +154,6 @@ impl Transformer for CustomTransformer {
         z: &mut [f64],
         success: &mut [bool],
     ) -> PreprocessResult<()> {
-        // gdal suggest requires a bidirectional transformer from src pixel space, to destination uv space
-        // gdal warp requires a unidirectional transformer from destination pixel space, to src pixel space
-
-        // for some strange reason success is not correctly initialized
         for success in success.iter_mut() {
             *success = true;
         }
@@ -244,8 +170,6 @@ impl Transformer for CustomTransformer {
             self.src_inverse_geo_transform
                 .transform(dst_to_src, x, y, z, success)?;
         } else {
-            // this only runs during the suggest phase
-            // here we output uv coordinates directly, without applying a geo transform (we want to compute this)
             self.src_inverse_geo_transform
                 .transform(dst_to_src, x, y, z, success)?;
             self.lon_lat_transformer

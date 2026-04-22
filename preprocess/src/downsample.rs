@@ -1,3 +1,4 @@
+use crate::gdal::raster::{Buffer, GdalType, RasterBand, ResampleAlg};
 use crate::{
     dataset::{PreprocessContext, create_tile_dataset, load_tile_dataset_if_exists},
     gdal_extension::{CountingProgressCallback, ProgressCallback},
@@ -6,7 +7,6 @@ use crate::{
 };
 use bevy_math::IVec2;
 use bevy_terrain::math::TileCoordinate;
-use gdal::raster::{Buffer, GdalType, RasterBand, ResampleAlg};
 use itertools::{Itertools, izip};
 use num::NumCast;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
