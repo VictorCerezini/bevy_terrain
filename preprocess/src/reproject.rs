@@ -1,9 +1,8 @@
-use crate::gdal::{Dataset, GeoTransform, GeoTransformEx, raster::GdalType};
+use crate::gdal::{Dataset, GeoTransform, raster::GdalType};
 use crate::{
     dataset::{FaceInfo, PreprocessContext, create_empty_dataset},
-    gdal_extension::{GDALCustomTransformer, ProgressCallback, SuggestedWarpOutput, warp},
+    gdal_extension::{ProgressCallback, warp},
     result::PreprocessResult,
-    transformers::CustomTransformer,
 };
 use bevy_math::{DVec2, IVec2, U64Vec2};
 use bevy_terrain::prelude::AttachmentLabel;
@@ -11,7 +10,6 @@ use itertools::Itertools;
 use std::collections::HashMap;
 
 pub struct Transform<'a> {
-    pub transformer: GDALCustomTransformer,
     pub face: u32,
     pub lod: u32,
     pub size: U64Vec2,
@@ -52,7 +50,6 @@ where
                 &src_dataset,
                 &dst_dataset,
                 context,
-                &mut transform.transformer,
                 transform.progress_callback.as_deref(),
             )?;
 
@@ -116,7 +113,6 @@ pub fn compute_transforms<'a>(
             lod: 0,
             pixel_start: IVec2::ZERO,
             pixel_end: IVec2::ZERO,
-            transformer: CustomTransformer::create(src_dataset, face, None)?,
             geo_transform,
             progress_callback: None,
         });
@@ -179,8 +175,6 @@ pub fn compute_transforms<'a>(
         ]);
         transform.pixel_start = pixel_start.as_ivec2();
         transform.pixel_end = pixel_end.as_ivec2();
-        transform.transformer =
-            CustomTransformer::create(src_dataset, transform.face, Some(transform.geo_transform))?;
     }
 
     let work_portions = transforms

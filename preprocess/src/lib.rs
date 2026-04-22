@@ -8,7 +8,6 @@ mod reproject;
 mod result;
 mod split;
 mod stitch;
-mod transformers;
 
 use crate::gdal::{
     Dataset, DriverManager,

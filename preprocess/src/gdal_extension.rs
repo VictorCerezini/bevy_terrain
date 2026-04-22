@@ -1,48 +1,21 @@
 use crate::{
     dataset::PreprocessContext,
     gdal::{
-        Dataset, GeoTransform,
+        Dataset,
         raster::{GdalType, ResampleAlg},
     },
-    result::{PreprocessError, PreprocessResult},
+    result::PreprocessResult,
 };
-use bevy_math::U64Vec2;
 use std::{
     path::Path,
     sync::atomic::{AtomicU64, Ordering},
 };
 use thread_local::ThreadLocal;
 
-type CreateSimilarFunc = unsafe extern "C" fn(
-    transformer_arg: *mut std::ffi::c_void,
-    src_ratio_x: f64,
-    src_ratio_y: f64,
-) -> *mut std::ffi::c_void;
-
-#[repr(C)]
-pub struct GDALTransformerInfo {
-    pfn_create_similar: Option<CreateSimilarFunc>,
-}
-
-impl GDALTransformerInfo {
-    pub(crate) fn new(similar_func: CreateSimilarFunc) -> Self {
-        Self {
-            pfn_create_similar: Some(similar_func),
-        }
-    }
-}
-
-#[repr(C)]
-pub struct GDALCustomTransformer {
-    pub(crate) info: GDALTransformerInfo,
-    pub(crate) inner: Box<dyn Transformer>,
-}
-
 pub fn warp<T: GdalType>(
     src: &Dataset,
     dst: &Dataset,
     context: &PreprocessContext,
-    transformer: &mut GDALCustomTransformer,
     progress_callback: Option<&ProgressCallback>,
 ) -> PreprocessResult<()> {
     let (width, height) = dst.raster_size();
@@ -63,7 +36,6 @@ pub fn warp<T: GdalType>(
         }
     }
 
-    let _ = transformer;
     Ok(())
 }
 
@@ -137,68 +109,6 @@ impl<'a> CountingProgressCallback<'a> {
         if let Some(progress_callback) = self.progress_callback {
             progress_callback(self.counter.fetch_add(1, Ordering::Relaxed) as f64 / self.count);
         }
-    }
-}
-
-pub trait Transformer: Send + Sync {
-    fn transform(
-        &mut self,
-        dst_to_src: bool,
-        x: &mut [f64],
-        y: &mut [f64],
-        z: &mut [f64],
-        success: &mut [bool],
-    ) -> PreprocessResult<()>;
-}
-
-pub struct SuggestedWarpOutput {
-    pub size: U64Vec2,
-    pub geo_transform: GeoTransform,
-}
-
-impl SuggestedWarpOutput {
-    pub fn compute(
-        src: &Dataset,
-        transformer: &mut GDALCustomTransformer,
-    ) -> Result<Option<SuggestedWarpOutput>, PreprocessError> {
-        let (width, height) = src.raster_size();
-        let mut xs = vec![0.0, width as f64, 0.0, width as f64];
-        let mut ys = vec![0.0, 0.0, height as f64, height as f64];
-        let mut zs = vec![0.0; 4];
-        let mut success = vec![true; 4];
-        transformer
-            .inner
-            .transform(false, &mut xs, &mut ys, &mut zs, &mut success)?;
-        if success.iter().all(|success| !success) {
-            return Ok(None);
-        }
-        let min_x = xs.iter().copied().fold(f64::INFINITY, f64::min).max(0.0);
-        let max_x = xs
-            .iter()
-            .copied()
-            .fold(f64::NEG_INFINITY, f64::max)
-            .min(1.0);
-        let min_y = ys.iter().copied().fold(f64::INFINITY, f64::min).max(0.0);
-        let max_y = ys
-            .iter()
-            .copied()
-            .fold(f64::NEG_INFINITY, f64::max)
-            .min(1.0);
-        let src_pixels = (width.max(height)).max(1) as f64;
-        let out_width = ((max_x - min_x).abs() * src_pixels).ceil().max(1.0) as u64;
-        let out_height = ((max_y - min_y).abs() * src_pixels).ceil().max(1.0) as u64;
-
-        Ok(Some(SuggestedWarpOutput {
-            size: U64Vec2::new(out_width, out_height),
-            geo_transform: [
-                min_x,
-                (max_x - min_x) / out_width as f64,
-                0.0,
-                min_y,
-                0.0,
-                (max_y - min_y) / out_height as f64,
-            ],
-        }))
     }
 }
 
