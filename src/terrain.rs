@@ -19,6 +19,12 @@ impl<C> Default for TerrainComponents<C> {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub struct ValidUvRect {
+    pub min: [f32; 2],
+    pub max: [f32; 2],
+}
+
 /// The configuration of a terrain.
 ///
 /// Here you can define all fundamental parameters of the terrain.
@@ -37,6 +43,8 @@ pub struct TerrainConfig {
     pub attachments: HashMap<AttachmentLabel, AttachmentConfig>,
     /// The tiles of the terrain.
     pub tiles: Vec<TileCoordinate>,
+    #[serde(default)]
+    pub valid_uv_rect: Option<ValidUvRect>,
 }
 
 impl Default for TerrainConfig {
@@ -50,6 +58,7 @@ impl Default for TerrainConfig {
             path: default(),
             tiles: default(),
             attachments: default(),
+            valid_uv_rect: None,
         }
     }
 }

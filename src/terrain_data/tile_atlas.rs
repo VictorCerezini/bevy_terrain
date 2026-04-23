@@ -2,7 +2,7 @@ use crate::{
     math::{TerrainShape, TileCoordinate},
     plugin::TerrainSettings,
     render::TerrainUniform,
-    terrain::TerrainConfig,
+    terrain::{TerrainConfig, ValidUvRect},
     terrain_data::{
         Attachment, AttachmentData, AttachmentLabel, AttachmentTile, AttachmentTileWithData,
         DefaultLoader, TileTree, TileTreeEntry,
@@ -73,6 +73,7 @@ pub struct TileAtlas {
     pub(crate) max_height: f32,
     pub(crate) height_scale: f32,
     pub(crate) shape: TerrainShape,
+    pub(crate) valid_uv_rect: Option<ValidUvRect>,
 
     pub(crate) terrain_buffer: Handle<ShaderStorageBuffer>,
 }
@@ -129,6 +130,7 @@ impl TileAtlas {
                 }
             },
             shape: config.shape,
+            valid_uv_rect: config.valid_uv_rect,
             terrain_buffer,
         }
     }

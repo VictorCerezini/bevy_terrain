@@ -99,9 +99,10 @@ fn fragment(input: FragmentInput) -> FragmentOutput {
     let tile             = lookup_tile(info.coordinate, info.blend);
     let mask             = sample_height_mask(tile);
     let color            = vec4<f32>(0.5);
-    let surface_gradient = sample_surface_gradient(tile, info.tangent_space);
 
     if (mask) { discard; }
+
+    let surface_gradient = sample_surface_gradient(tile, info.tangent_space);
 
     var output: FragmentOutput;
     fragment_output(&info, &output, color, surface_gradient);

@@ -15,6 +15,7 @@ fn main() {
         data_type: PreprocessDataType::DataType(GdalDataType::Float32),
         fill_radius: 32.0,
         create_mask: true,
+        clip_to_source_extent: false,
         lod_count: None,
         attachment_label: AttachmentLabel::Height,
         texture_size: 512,

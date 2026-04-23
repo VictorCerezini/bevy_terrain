@@ -28,8 +28,10 @@ pub struct Cli {
     pub data_type: PreprocessDataType,
     #[arg(default_value_t = 16.0)]
     pub fill_radius: f32,
-    #[arg(default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     pub create_mask: bool,
+    #[arg(long, default_value_t = false)]
+    pub clip_to_source_extent: bool,
 
     #[arg(default_value = None)]
     pub lod_count: Option<u32>,

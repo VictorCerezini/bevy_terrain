@@ -197,6 +197,7 @@ fn save_terrain_config(tiles: Vec<TileCoordinate>, context: &PreprocessContext) 
         config.height_scale = context.height_scale;
         config.tiles = tiles;
         config.lod_count = context.lod_count.unwrap();
+        config.valid_uv_rect = context.valid_uv_rect;
     }
 
     config.save_file(&file_path).unwrap();

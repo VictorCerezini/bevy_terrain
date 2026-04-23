@@ -9,6 +9,10 @@ struct Terrain {
     world_from_unit: mat3x4<f32>,
     unit_from_world_transpose_a: mat2x4<f32>,
     unit_from_world_transpose_b: f32,
+    valid_uv_min: vec2<f32>,
+    valid_uv_max: vec2<f32>,
+    valid_uv_enabled: u32,
+    valid_uv_padding: u32,
 }
 
 struct TerrainView {

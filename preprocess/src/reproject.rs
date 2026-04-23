@@ -223,8 +223,19 @@ where
 
     let max_dimension = width.max(height) as f64;
     let tile_size = context.attachment.center_size() as f64;
-    let max_lod = (max_dimension / tile_size).log2().ceil() as u32;
+    let max_lod = (max_dimension / tile_size).log2().ceil().max(0.0) as u32;
     context.lod_count = Some(max_lod + 1);
+
+    if context.clip_to_source_extent {
+        let domain_size = (1u64 << max_lod) as f32 * context.attachment.center_size() as f32;
+        context.valid_uv_rect = Some(bevy_terrain::terrain::ValidUvRect {
+            min: [0.0, 0.0],
+            max: [
+                (width as f32 / domain_size).clamp(0.0, 1.0),
+                (height as f32 / domain_size).clamp(0.0, 1.0),
+            ],
+        });
+    }
 
     let dst_path = context.temp_dir.join(format!("face{}.tif", face));
 

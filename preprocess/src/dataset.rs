@@ -11,6 +11,7 @@ use bevy_math::{IVec2, U64Vec2};
 use bevy_terrain::{
     math::TileCoordinate,
     prelude::TerrainShape,
+    terrain::ValidUvRect,
     terrain_data::{AttachmentConfig, AttachmentFormat, AttachmentLabel},
 };
 use itertools::Itertools;
@@ -83,6 +84,8 @@ pub struct PreprocessContext {
     pub(crate) attachment_label: AttachmentLabel,
     pub(crate) attachment: AttachmentConfig,
     pub(crate) shape: TerrainShape,
+    pub(crate) clip_to_source_extent: bool,
+    pub(crate) valid_uv_rect: Option<ValidUvRect>,
 }
 
 impl PreprocessContext {
@@ -96,6 +99,7 @@ impl PreprocessContext {
             data_type,
             fill_radius,
             create_mask,
+            clip_to_source_extent,
             lod_count,
             attachment_label,
             texture_size,
@@ -134,6 +138,7 @@ impl PreprocessContext {
             create_mask,
             overwrite,
             height_scale,
+            clip_to_source_extent,
         )
     }
 
@@ -152,6 +157,7 @@ impl PreprocessContext {
         create_mask: bool,
         overwrite: bool,
         height_scale: f32,
+        clip_to_source_extent: bool,
     ) -> PreprocessResult<(Dataset, Self)> {
         //let mut src_datasets = src_path
         // .iter()
@@ -262,6 +268,8 @@ impl PreprocessContext {
                 lod_count,
                 shape,
                 height_scale,
+                clip_to_source_extent,
+                valid_uv_rect: None,
             },
         ))
     }

@@ -10,7 +10,8 @@ use bevy::{
     },
     math::Affine3,
     prelude::{
-        Added, Entity, GlobalTransform, Handle, Image, Query, Res, ResMut, Vec3, Vec4, default,
+        Added, Entity, GlobalTransform, Handle, Image, Query, Res, ResMut, Vec2, Vec3, Vec4,
+        default,
     },
     render::{
         Extract,
@@ -114,6 +115,10 @@ pub struct TerrainUniform {
     world_from_local: [Vec4; 3],
     local_from_world_transpose_a: [Vec4; 2],
     local_from_world_transpose_b: f32,
+    valid_uv_min: Vec2,
+    valid_uv_max: Vec2,
+    valid_uv_enabled: u32,
+    valid_uv_padding: u32,
 }
 
 impl TerrainUniform {
@@ -122,6 +127,16 @@ impl TerrainUniform {
         let world_from_local = transform.to_transpose();
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             transform.inverse_transpose_3x3();
+        let (valid_uv_min, valid_uv_max, valid_uv_enabled) =
+            if let Some(valid_uv_rect) = tile_atlas.valid_uv_rect {
+                (
+                    Vec2::from_array(valid_uv_rect.min),
+                    Vec2::from_array(valid_uv_rect.max),
+                    1,
+                )
+            } else {
+                (Vec2::ZERO, Vec2::ONE, 0)
+            };
 
         Self {
             lod_count: tile_atlas.lod_count,
@@ -132,6 +147,10 @@ impl TerrainUniform {
             world_from_local,
             local_from_world_transpose_a,
             local_from_world_transpose_b,
+            valid_uv_min,
+            valid_uv_max,
+            valid_uv_enabled,
+            valid_uv_padding: 0,
         }
     }
 }

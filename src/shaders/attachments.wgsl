@@ -38,6 +38,15 @@ fn sample_height(tile: AtlasTile) -> f32 {
 fn sample_height_mask(tile: AtlasTile) -> bool {
     let attachment = attachments.height;
 
+    if terrain.valid_uv_enabled != 0u {
+        let tile_count = exp2(f32(tile.coordinate.lod));
+        let terrain_uv = (vec2<f32>(tile.coordinate.xy) + tile.coordinate.uv) / tile_count;
+
+        if any(terrain_uv < terrain.valid_uv_min) || any(terrain_uv > terrain.valid_uv_max) {
+            return true;
+        }
+    }
+
     if attachment.mask == 0 { return false; }
 
     let uv = tile.coordinate.uv * attachment.scale + attachment.offset;
