@@ -3,9 +3,40 @@
 #import bevy_terrain::types::{AtlasTile, TangentSpace, AttachmentConfig, SampleUV, WorldCoordinate}
 #import bevy_terrain::bindings::{terrain, terrain_view, terrain_sampler, attachments, height_attachment}
 
+fn compute_terrain_uv(tile: AtlasTile) -> vec2<f32> {
+    let tile_count = exp2(f32(tile.coordinate.lod));
+    return (vec2<f32>(tile.coordinate.xy) + tile.coordinate.uv) / tile_count;
+}
+
+fn valid_sample_min_uv(tile: AtlasTile, attachment: AttachmentConfig) -> vec2<f32> {
+    let tile_count = exp2(f32(tile.coordinate.lod));
+    let tile_xy = vec2<f32>(tile.coordinate.xy);
+    let texel = vec2<f32>(0.5 / attachment.center_size);
+    let local_min = clamp(terrain.valid_uv_min * tile_count - tile_xy + texel, vec2<f32>(0.0), vec2<f32>(1.0));
+    let local_max = clamp(terrain.valid_uv_max * tile_count - tile_xy - texel, vec2<f32>(0.0), vec2<f32>(1.0));
+    return min(local_min, local_max) * attachment.scale + attachment.offset;
+}
+
+fn valid_sample_max_uv(tile: AtlasTile, attachment: AttachmentConfig) -> vec2<f32> {
+    let tile_count = exp2(f32(tile.coordinate.lod));
+    let tile_xy = vec2<f32>(tile.coordinate.xy);
+    let texel = vec2<f32>(0.5 / attachment.center_size);
+    let local_min = clamp(terrain.valid_uv_min * tile_count - tile_xy + texel, vec2<f32>(0.0), vec2<f32>(1.0));
+    let local_max = clamp(terrain.valid_uv_max * tile_count - tile_xy - texel, vec2<f32>(0.0), vec2<f32>(1.0));
+    return max(local_min, local_max) * attachment.scale + attachment.offset;
+}
+
+fn clamp_valid_sample_uv(tile: AtlasTile, attachment: AttachmentConfig, uv: vec2<f32>) -> vec2<f32> {
+    if terrain.valid_uv_enabled == 0u {
+        return uv;
+    }
+
+    return clamp(uv, valid_sample_min_uv(tile, attachment), valid_sample_max_uv(tile, attachment));
+}
+
 #ifdef FRAGMENT
 fn compute_sample_uv(tile: AtlasTile, attachment: AttachmentConfig) -> SampleUV {
-    let uv = tile.coordinate.uv * attachment.scale + attachment.offset;
+    let uv = clamp_valid_sample_uv(tile, attachment, tile.coordinate.uv * attachment.scale + attachment.offset);
     let lod = log2(attachment.texture_size * max(length(tile.coordinate.uv_dx), length(tile.coordinate.uv_dy)));
     let scale = exp2(max(1.5 * tile.blend_ratio - lod, 0.0));
     let dx = tile.coordinate.uv_dx * scale;
@@ -15,7 +46,7 @@ fn compute_sample_uv(tile: AtlasTile, attachment: AttachmentConfig) -> SampleUV 
 }
 #else
 fn compute_sample_uv(tile: AtlasTile, attachment: AttachmentConfig) -> SampleUV {
-    let uv = tile.coordinate.uv * attachment.scale + attachment.offset;
+    let uv = clamp_valid_sample_uv(tile, attachment, tile.coordinate.uv * attachment.scale + attachment.offset);
 
     return SampleUV(uv);
 }
@@ -40,9 +71,12 @@ fn sample_height_mask(tile: AtlasTile) -> bool {
 
     if terrain.valid_uv_enabled != 0u {
         let tile_count = exp2(f32(tile.coordinate.lod));
-        let terrain_uv = (vec2<f32>(tile.coordinate.xy) + tile.coordinate.uv) / tile_count;
+        let texel = vec2<f32>(0.5 / (attachment.center_size * tile_count));
+        let valid_uv_min = terrain.valid_uv_min + texel;
+        let valid_uv_max = terrain.valid_uv_max - texel;
+        let terrain_uv = compute_terrain_uv(tile);
 
-        if any(terrain_uv < terrain.valid_uv_min) || any(terrain_uv > terrain.valid_uv_max) {
+        if any(terrain_uv < min(valid_uv_min, valid_uv_max)) || any(terrain_uv > max(valid_uv_min, valid_uv_max)) {
             return true;
         }
     }

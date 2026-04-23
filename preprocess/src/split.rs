@@ -1,6 +1,7 @@
 use crate::gdal::raster::{Buffer, GdalType};
 use crate::{
     dataset::{FaceInfo, PreprocessContext, create_tile_dataset},
+    edge_extend::edge_extend_tile,
     gdal_extension::{CountingProgressCallback, ProgressCallback, SharedReadOnlyDataset},
     result::{PreprocessError, PreprocessResult},
     stitch::stitch,
@@ -152,6 +153,8 @@ fn split<T: Copy + GdalType + PartialEq + NumCast>(
                         &mut copy_buffer,
                     )?;
                 }
+
+                edge_extend_tile::<T>(tile_coordinate, &tile_dataset, context)?;
             }
 
             progress_callback.increment();

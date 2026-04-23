@@ -1,6 +1,7 @@
 use crate::gdal::raster::{Buffer, GdalType, RasterBand, ResampleAlg};
 use crate::{
     dataset::{PreprocessContext, create_tile_dataset, load_tile_dataset_if_exists},
+    edge_extend::edge_extend_tile,
     gdal_extension::{CountingProgressCallback, ProgressCallback},
     result::{PreprocessError, PreprocessResult},
     stitch::stitch,
@@ -98,6 +99,8 @@ fn downsample<T: Copy + GdalType + PartialEq + NumCast>(
         for (tile_raster, tile_buffer) in izip!(&mut tile_rasters, &mut tile_buffers) {
             tile_raster.write::<T>(border_offset, tile_size, tile_buffer)?;
         }
+
+        edge_extend_tile::<T>(tile_coordinate, &tile_dataset, context)?;
 
         progress_callback.increment();
 

@@ -1,6 +1,7 @@
 mod cli;
 mod dataset;
 mod downsample;
+mod edge_extend;
 mod fill_no_data;
 pub mod gdal;
 mod gdal_extension;
